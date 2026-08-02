@@ -179,6 +179,11 @@ h1,h2,h3{margin:0;}
 /* ---- キャラ吹き出し ---- */
 .speech{display:flex; gap:10px; align-items:flex-start; background:var(--cream); border-radius:16px; padding:12px 14px; box-shadow:var(--card-shadow); animation:pop .3s ease;}
 .speech .ava{font-size:34px; flex:0 0 auto; line-height:1;}
+/* OWL は絵文字ではなく立ち絵で出す。決算のように感情が動く場面に絵文字が座っていると、
+   プレイヤーはそこへ感情を預けられない。素材は正規化済みで表情を変えても位置がズレない。
+   ——立ち絵側は width:100% を持つので、寸法はこのラッパーで決める（!important を使わない）。 */
+.speech .ava .avaimg{display:block; width:54px; margin:-8px -2px -6px;
+  filter:drop-shadow(1px 4px 6px rgba(40,28,12,.28));}
 .speech .bub{font-size:13.5px; line-height:1.55;}
 .speech .bub b{color:var(--leaf-700);}
 

@@ -1240,15 +1240,21 @@ function buildResultModal(res, ctx, X){
   steps.push({ snd:null, h:`<div class="r ${X.isRevealed("PROFIT")?'':'total'}"><span>💵 現金 CASH</span><b class="tabnum" style="color:${s.cash<30000?'var(--danger)':'inherit'}">${B.fmt(s.cash)}</b></div>` });
 
   const owlTxt = X.owlCheck(res, s);
+  /* CHARACTER_PACK の演技表：OWL の顔は結果に連動させる。
+     苦しい週に明るい顔をすると「見捨てられた」と感じさせる。良い週は一緒に喜ぶ。
+     ——プレイヤーの結果に気づいてくれる、という事実が愛着の正体。 */
+  const owlMood = (s.cash < 0 || res.opProfit < 0) ? "worried"
+                : (prev && res.opProfit > (prev.profit || 0)) ? "happy" : "normal";
+  const owlAva = `<span class="avaimg">${svgOwl(owlMood)}</span>`;
   const eventLine = (ctx && ctx.note)
-    ? `<div class="speech" style="box-shadow:none;background:#fff7e6;margin-bottom:10px"><div class="ava">🦉</div><div class="bub">${ctx.note}</div></div>` : "";
+    ? `<div class="speech" style="box-shadow:none;background:#fff7e6;margin-bottom:10px"><div class="ava">${owlAva}</div><div class="bub">${ctx.note}</div></div>` : "";
 
   return { html:`
     <div class="mhead"><div class="mbig">🌙</div><div class="mtit">WEEK ${res.week} 決算</div></div>
     <div class="mbody">
       ${eventLine}
       <div class="pl card" id="jzPL" style="box-shadow:none;background:#fffdf5;border:2px solid #f0e9d6;min-height:110px"></div>
-      <div id="jzOwlWrap" style="display:none"><div class="speech" style="margin-top:12px"><div class="ava">🦉</div><div class="bub"><b>OWL CHECK：</b>${owlTxt}</div></div></div>
+      <div id="jzOwlWrap" style="display:none"><div class="speech" style="margin-top:12px"><div class="ava">${owlAva}</div><div class="bub"><b>OWL CHECK：</b>${owlTxt}</div></div></div>
       <button class="btn banana big" data-next style="margin-top:14px;display:none;width:100%">次へ ▶</button>
     </div>`,
     wire:(root, done)=>{
