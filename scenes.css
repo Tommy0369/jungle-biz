@@ -410,6 +410,9 @@
   border-radius:18px; padding:12px 16px; font-weight:900; font-size:15px;
   box-shadow:0 14px 30px rgba(0,0,0,.3);
   animation:jzPopIn .4s cubic-bezier(.2,.9,.3,1.3) both;
+  /* 幅の上限は bubbleX() の計算と揃える。これが無いと狭い場所で
+     テキストが1文字ずつ縦に折り返される。 */
+  max-width:min(66vw, 240px); box-sizing:border-box;
 }
 .jz-bubble:after{
   content:""; position:absolute; bottom:-9px; left:50%; margin-left:-9px;
@@ -460,22 +463,42 @@
 .jz-stall img{
   -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 7%, #000 100%);
           mask-image:linear-gradient(to bottom, transparent 0, #000 7%, #000 100%);
-  filter:drop-shadow(0 18px 22px rgba(0,0,0,.32));
+  /* 影は「真下に長く」だと物が浮く。背景は岬の奥からの逆光なので、
+     光源に合わせて短く・わずかに手前へ落とす。色は純黒でなく砂の環境色を混ぜる。 */
+  filter:drop-shadow(2px 8px 11px rgba(40,28,12,.34));
+  /* §30 完全静止は禁止。建物なので呼吸ではなく、風にきしむ程度の微細な傾き。
+     足元を軸にする＝接地点が動かないので、影とズレない。 */
+  transform-origin:50% 100%;
+  animation:jzStallIdle 8.5s ease-in-out infinite;
+}
+@keyframes jzStallIdle{
+  0%,100%{transform:rotate(-.20deg)}
+  50%    {transform:rotate(.20deg)}
 }
 /* 4段階素材は上下12%以上の透明余白つき。画像自体をフェードさせず、全画素を出す。 */
 .jz-stall img.jz-stall-stage{
   -webkit-mask-image:none;
           mask-image:none;
 }
-/* 接地感。影がないと、切り抜きが宙に浮いて見える */
-.jz-stall::after{
+/* 接地感。影がないと、切り抜きが宙に浮いて見える。
+   影は2層で作る——コア（狭く濃く、ぼけが少ない）が「どこで地面に触れているか」を決め、
+   アンビエント（広く薄く、大きくぼける）が回り込む光を表す。
+   1層だけだと、地面に載らずシールを貼ったように見える。 */
+.jz-stall::after{      /* アンビエント：広く薄い */
   content:""; position:absolute; left:50%; transform:translateX(-50%);
-  bottom:-2%; width:78%; height:7%;
-  background:radial-gradient(ellipse at center, rgba(0,0,0,.34), rgba(0,0,0,0) 70%);
-  pointer-events:none;
+  bottom:-3%; width:96%; height:15%; z-index:-2;
+  background:radial-gradient(ellipse at center, rgba(48,34,16,.24), rgba(48,34,16,0) 70%);
+  filter:blur(8px); pointer-events:none;
+}
+.jz-stall::before{     /* コア：狭く濃い。接地点はここで決まる */
+  content:""; position:absolute; left:50%; transform:translateX(-50%);
+  bottom:1%; width:54%; height:6.5%; z-index:-1;
+  background:radial-gradient(ellipse at center, rgba(38,26,10,.46), rgba(38,26,10,0) 64%);
+  filter:blur(3px); pointer-events:none;
 }
 /* 4段階素材の接地面はキャンバス下端ではなく、およそ下12%の位置にある。 */
-.jz-stall:has(> img.jz-stall-stage)::after{bottom:10%;}
+.jz-stall:has(> img.jz-stall-stage)::after{bottom:8%;}
+.jz-stall:has(> img.jz-stall-stage)::before{bottom:12%;}
 .t-night .jz-stall,.t-predawn .jz-stall{filter:brightness(.62) drop-shadow(0 18px 22px rgba(0,0,0,.5));}
 .jz-lantern{
   position:absolute; width:52px; height:52px; border-radius:50%; z-index:16; pointer-events:none;
@@ -663,6 +686,12 @@
   background:linear-gradient(90deg, transparent, rgba(255,248,225,.95), transparent);
   animation:jzTwinkle 2.6s ease-in-out infinite;
 }
+/* 画像背景の水面に「光の反射」だけを重ねる帯。
+   海そのものは絵に描かれているので動かせない。動くのは光だけでいい——
+   それだけで水面は生きて見える。位置は背景ごとに呼び出し側が指定する。 */
+.jz-glintband{
+  position:absolute; left:0; right:0; pointer-events:none; overflow:hidden;
+}
 .t-night .jz-glint,.t-predawn .jz-glint{opacity:.25;}
 
 /* 波打ち際の泡（寄せては返す） */
@@ -697,7 +726,11 @@
    歪みで端が欠けないよう少し拡大して置く（-3%〜106%）。 */
 .jz-bgimg.sway{
   filter:url(#leafSway); will-change:filter;
-  background-size:107%; inset:-3%;
+  /* inset を負にして要素ごと広げる＝歪みで端が欠けても背景が途切れない。
+     この要素は par() の外（＝画面基準）に置くので、負の inset がそのまま余白になる。
+     background-size は cover のまま（数値にすると縦が足りず、縦長のスマホで
+     画像が上下に繰り返しタイル表示される）。repeat も明示的に切る。 */
+  inset:-4%; background-repeat:no-repeat;
 }
 @media (prefers-reduced-motion: reduce){ .jz-bgimg.sway{ filter:none; } }
 /* 夜専用画像が無い時は昼画像をCSSで夜に落とす。raw=その時間帯の絵そのもの（触らない） */

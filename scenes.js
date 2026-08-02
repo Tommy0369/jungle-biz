@@ -570,6 +570,15 @@ function stage(timeClass, inner){
 function par(d, html){
   return `<div class="jz-par" data-d="${d}">${html}</div>`;
 }
+
+/* 吹き出しは客の立ち位置から出す。ただし客が画面端にいると枠外へ飛び出し、
+   幅が潰れて文字が縦1列になる（375px幅で実測22pxはみ出していた）。
+   左右とも画面内に収める。上限は CSS の max-width と揃える。 */
+function bubbleX(x){
+  const vw = window.innerWidth || 375;
+  const w = Math.min(vw * 0.66, 240);
+  return Math.round(Math.min(Math.max(10, x), Math.max(10, vw - w - 12)));
+}
 /* §4 Premium 2.5D Parallax。強すぎない・低負荷（rAF＋lerp）。reduced-motionでは無効 */
 function enableParallax(st){
   if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -614,7 +623,22 @@ function skyBits(opts){
   let h = `<div class="jz-sky"></div>`;
 
   if(bgKey){
-    h += par(0.03, `<div class="jz-bgimg${opts.bgRaw?' raw':''}${opts.sway?' sway':''}" style="background-image:url('${AssetReg.url(bgKey)}')"></div>`);
+    const bgTag = `<div class="jz-bgimg${opts.bgRaw?' raw':''}${opts.sway?' sway':''}" style="background-image:url('${AssetReg.url(bgKey)}')"></div>`;
+    /* 葉を揺らす時は par() で包まない。SVGフィルタの変位と親の scale(1.05) が
+       噛み合うと要素の位置がずれ、縦長のスマホで画面下端に地の色の帯が出る
+       （実測: 背景の下端が 723px、画面は 812px）。揺らさない時は従来どおり視差をかける。 */
+    h += opts.sway ? bgTag : par(0.03, bgTag);
+    /* 画像の中の海は描かれてはいるが、完全に止まっている。止まった水は「絵」に見える。
+       水面の反射だけを重ねて、光が揺れている状態を作る。
+       海の高さは背景ごとに違うので、位置は呼び出し側から [top, height] で渡す。 */
+    if(opts.glint){
+      let g = "";
+      for(let i=0;i<8;i++){
+        g += `<div class="jz-glint" style="left:${rnd(6,90).toFixed(1)}%;top:${rnd(4,92).toFixed(1)}%;`
+           + `width:${rnd(12,28)|0}px;animation-delay:${rnd(0,3.2).toFixed(2)}s"></div>`;
+      }
+      h += par(0.05, `<div class="jz-glintband" style="top:${opts.glint[0]};height:${opts.glint[1]}">${g}</div>`);
+    }
     h += par(0.02, `<div class="jz-godray"></div>`);
   } else {
     h += par(0.012, starsHtml()) + par(0.022, `<div class="jz-sun"></div>`);
@@ -646,13 +670,18 @@ function skyBits(opts){
   if(opts.canopy && !bgKey) h += par(0.12, `<div class="jz-canopy">${svgCanopy()}</div>`);
   // 画像背景には前景植物が焼き込まれがち。二重描画を避けるため、
   // 画像使用時はスタイルの合う fg 素材がある時だけ前景を重ねる
+  /* 前景植物は「額縁」であって主役ではない。役割は奥行きを作ることだけ。
+     ——固定pxだと375px幅のスマホで画面の6割を覆い、店とUIを飲み込む。
+     vw基準にして画面端へ逃がし、下端は大きく画面外へ出す（画面内で終わると置物に見える）。
+     左右でサイズ・高さ・種類の重なりを変える＝自然界に左右対称はない。 */
   if(opts.palms !== false && (!bgKey || AssetReg.has("fg/palm"))){
-    h += par(0.16, `<div class="jz-palmwrap" style="left:-46px;bottom:-24px;width:210px">${fgPalm(false)}</div>
-          <div class="jz-palmwrap" style="right:-52px;bottom:-20px;width:240px;animation-delay:1.4s">${fgPalm(true)}</div>`);
+    h += par(0.16, `<div class="jz-palmwrap" style="left:-15vw;bottom:-9%;width:43vw;max-width:240px">${fgPalm(false)}</div>
+          <div class="jz-palmwrap" style="right:-19vw;bottom:-6%;width:49vw;max-width:272px;animation-delay:1.4s">${fgPalm(true)}</div>`);
   }
+  /* シダはヤシと重ねない。重なると「団子」になり、前景が1つの塊に見える。 */
   if(opts.palms !== false && (!bgKey || AssetReg.has("fg/fern"))){
-    h += par(0.18, `<div class="jz-fernwrap" style="left:28px;bottom:-14px;width:122px;animation-delay:.7s">${fgFern(false)}</div>
-          <div class="jz-fernwrap" style="right:34px;bottom:-16px;width:112px;animation-delay:2s">${fgFern(true)}</div>`);
+    h += par(0.18, `<div class="jz-fernwrap" style="left:-7vw;bottom:-4%;width:26vw;max-width:146px;animation-delay:.7s">${fgFern(false)}</div>
+          <div class="jz-fernwrap" style="right:-6vw;bottom:-5%;width:24vw;max-width:134px;animation-delay:2s">${fgFern(true)}</div>`);
   }
   if(opts.flies) h += par(0.09, fliesHtml(opts.flies));
   h += `<div class="jz-grain"></div><div class="jz-vig"></div>`;
@@ -826,7 +855,7 @@ function sceneTitle(){
 function sceneIntro(){
   introTimers.forEach(clearTimeout); introTimers = [];
   const st = stage("t-predawn", `
-    ${skyBits({ boat:{ id:"jzBoat", left:"-18%", bottom:"25%", scale:1 }, shore:true, flies:5, bgKey:"bg/beach_dawn" })}
+    ${skyBits({ boat:{ id:"jzBoat", left:"-18%", bottom:"25%", scale:1 }, shore:true, flies:5, bgKey:"bg/beach_dawn", glint:["46%","17%"] })}
     <button class="jz-skip" id="jzSkip">スキップ ▶▶</button>
     <div id="jzActors"></div>
   `);
@@ -888,7 +917,7 @@ function sceneSelect(){
     </button>`;
   }).join("");
   stage("t-day", `
-    ${skyBits({ shore:true, bgKey:"bg/beach_day" })}
+    ${skyBits({ shore:true, bgKey:"bg/beach_day", glint:["45%","19%"] })}
     <div class="jz-hint"><div class="jz-chip">🌴 どの島で、どの商売で生きる？</div></div>
     <div class="jz-plot" id="jzPlot"><div class="empty">▼ ここに、君の店が建つ</div></div>
     <div class="jz-islebar">
@@ -977,7 +1006,7 @@ function sceneFirstSale(){
   const s = B.Engine.state; if(!s){ sceneTitle(); return; }
   const b = B.BUSINESSES[s.bizId];
   const st = stage("t-day", `
-    ${skyBits({ shore:true, bgKey:"bg/beach_day" })}
+    ${skyBits({ shore:true, bgKey:"bg/beach_day", glint:["45%","19%"] })}
     ${hudHtml(s)}
     <div class="jz-stall" style="left:38%;width:min(360px,74vw)">${svgStall(s.bizId, 1)}</div>
     <div id="jzHero" class="jz-breath" style="position:absolute;left:17%;bottom:18.5%;width:76px;z-index:17">${svgPlayerFront("normal")}</div>
@@ -999,7 +1028,7 @@ function sceneFirstSale(){
     g.querySelector(".b").style.animation = "none";                         // 立ち止まる
     const gr = g.getBoundingClientRect();
     $s("#jzAsk").innerHTML = `
-      <div class="jz-bubble" style="left:${Math.max(10, gr.left-70)}px;top:${gr.top-64}px">これ、いくら？</div>
+      <div class="jz-bubble" style="left:${bubbleX(gr.left-70)}px;top:${gr.top-64}px">これ、いくら？</div>
       <div class="jz-prices">
         ${prices.map((p,i)=>`
           <button class="jz-price" data-v="${p.v}" data-i="${i}" style="animation-delay:${i*0.09}s">
@@ -1016,7 +1045,7 @@ function sceneFirstSale(){
           "強気だねぇ……まあ旅先だ、いいか！",
         ][idx];
         const gr2 = g.getBoundingClientRect();
-        $s("#jzAsk").innerHTML = `<div class="jz-bubble" style="left:${Math.max(10, gr2.left-90)}px;top:${gr2.top-64}px">${react}</div>`;
+        $s("#jzAsk").innerHTML = `<div class="jz-bubble" style="left:${bubbleX(gr2.left-90)}px;top:${gr2.top-64}px">${react}</div>`;
         g.querySelector(".b").innerHTML = svgTourist(0, "wow");
         setTimeout(()=>{
           // 初売上：現金は本当に増やす。原価の話はまだしない（§38 伏線）
