@@ -183,7 +183,11 @@ h1,h2,h3{margin:0;}
    プレイヤーはそこへ感情を預けられない。素材は正規化済みで表情を変えても位置がズレない。
    ——立ち絵側は width:100% を持つので、寸法はこのラッパーで決める（!important を使わない）。 */
 .speech .ava .avaimg{display:block; width:54px; margin:-8px -2px -6px;
-  filter:drop-shadow(1px 4px 6px rgba(40,28,12,.28));}
+  filter:drop-shadow(1px 4px 6px rgba(40,28,12,.28));
+  /* 立ち絵が完全に止まっていると人形に見える。呼吸だけ入れる（足元を軸にして浮かせない）。
+     CHARACTER_PACK：プレイヤーが見ている時間の8割はアイドル。 */
+  transform-origin:50% 94%; animation:jzBreath 3.4s ease-in-out infinite;}
+@media (prefers-reduced-motion: reduce){ .speech .ava .avaimg{animation:none;} }
 .speech .bub{font-size:13.5px; line-height:1.55;}
 .speech .bub b{color:var(--leaf-700);}
 

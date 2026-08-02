@@ -1244,7 +1244,7 @@ function buildResultModal(res, ctx, X){
      苦しい週に明るい顔をすると「見捨てられた」と感じさせる。良い週は一緒に喜ぶ。
      ——プレイヤーの結果に気づいてくれる、という事実が愛着の正体。 */
   const owlMood = (s.cash < 0 || res.opProfit < 0) ? "worried"
-                : (prev && res.opProfit > (prev.profit || 0)) ? "happy" : "normal";
+                : (res.opProfit > (prev ? (prev.profit || 0) : 0)) ? "happy" : "normal";
   const owlAva = `<span class="avaimg">${svgOwl(owlMood)}</span>`;
   const eventLine = (ctx && ctx.note)
     ? `<div class="speech" style="box-shadow:none;background:#fff7e6;margin-bottom:10px"><div class="ava">${owlAva}</div><div class="bub">${ctx.note}</div></div>` : "";
