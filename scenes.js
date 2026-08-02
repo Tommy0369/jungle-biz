@@ -1293,3 +1293,13 @@ function interceptPlay(){
 
 return { boot, interceptPlay, openPlan, buildResultModal };
 })();
+
+
+/* TWO-STEP-SELECT: 店プレビューをタップすると事業を選び直せる */
+document.addEventListener("click", function(e){
+  var p = e.target && e.target.closest && e.target.closest("#jzPlot");
+  if(p && document.querySelector(".jz-totem.on")){
+    document.querySelectorAll(".jz-totem.on").forEach(function(t){ t.classList.remove("on"); });
+    var g = document.querySelector("#jzGo"); if(g){ g.disabled = true; g.textContent = "まず事業を選ぼう"; }
+  }
+});
