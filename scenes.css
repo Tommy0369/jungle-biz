@@ -1,0 +1,726 @@
+/* =========================================================================
+   JUNGLE BIZ — シーン層スタイル（設計書 v1.0）
+   Premium Tropical Business Adventure。
+   方針（§62-66,§94）: フラットにしない／白背景を使わない／
+   余白・タイポ・影・レイヤー・奥行きでプレミアム感を作る。
+   3Dは使わず、レイヤードSVG＋グラデ＋光の「Premium 2.5D」。
+   ========================================================================= */
+
+:root{
+  --jzDeep:#0c2b1e; --jzDeep2:#0a2317; --jzNight:#071a10;
+  --jzEmerald:#1fae6a; --jzLeaf:#2fbf71; --jzLeafDark:#155e3c;
+  --jzSand:#ecd9ae; --jzSand2:#dcbf85;
+  --jzSunset:#ff8a3d; --jzGold:#f2c14e; --jzGoldDeep:#c98f1c;
+  --jzLagoon:#2bb3a3; --jzCoral:#ff5a5f;
+  --jzCream:#fff6e0; --jzInk:#0e1f17;
+}
+
+/* ---------- 舞台 ---------- */
+.jz-stage{
+  position:fixed; inset:0; overflow:hidden; background:var(--jzDeep);
+  font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,-apple-system,sans-serif;
+  color:var(--jzCream); user-select:none; -webkit-user-select:none;
+}
+.jz-stage *{box-sizing:border-box;}
+
+/* ---------- 空（時間帯は stage のクラスで切替 §7） ---------- */
+.jz-sky{position:absolute; inset:0; transition:background 1.8s ease;}
+.t-predawn .jz-sky{background:linear-gradient(180deg,#0a1230 0%,#17264d 55%,#233a3a 100%);}
+.t-dawn .jz-sky{background:linear-gradient(180deg,#33406e 0%,#8c5d8a 34%,#ff9d5c 66%,#ffd9a0 100%);}
+.t-day  .jz-sky{background:linear-gradient(180deg,#7fd3ef 0%,#b7e7f2 52%,#e6f5d8 100%);}
+.t-dusk .jz-sky{background:linear-gradient(180deg,#3b2f63 0%,#a34f7c 44%,#ff9d5c 100%);}
+.t-night .jz-sky{background:linear-gradient(180deg,#081026 0%,#102043 58%,#122c20 100%);}
+
+/* 太陽（Bloom: 多層グロー。夕日/朝日で巨大化） */
+.jz-sun{
+  position:absolute; left:50%; bottom:34%; width:130px; height:130px; margin-left:-65px;
+  border-radius:50%; pointer-events:none;
+  background:radial-gradient(circle at 46% 42%, #fffbe8 0%, #ffeaa4 36%, #ffc25e 64%, rgba(255,170,70,0) 78%);
+  box-shadow:0 0 60px 26px rgba(255,200,115,.55), 0 0 150px 80px rgba(255,150,70,.26);
+  filter:blur(.4px);
+  transition:bottom 2.4s ease, opacity 1.8s ease, transform 2.4s ease, box-shadow 2s ease;
+}
+.t-dawn .jz-sun,.t-dusk .jz-sun{transform:scale(1.22);}
+.t-day .jz-sun{bottom:62%; transform:scale(.88);
+  box-shadow:0 0 44px 18px rgba(255,224,150,.4), 0 0 110px 54px rgba(255,200,110,.16);}
+.t-predawn .jz-sun,.t-night .jz-sun{opacity:0; bottom:18%;}
+.jz-stars{position:absolute; inset:0 0 40% 0; pointer-events:none; opacity:0; transition:opacity 1.6s;}
+.t-night .jz-stars,.t-predawn .jz-stars{opacity:1;}
+.jz-star{position:absolute; width:3px; height:3px; border-radius:50%; background:#fff6e0;
+  animation:jzTwinkle 2.8s ease-in-out infinite;}
+
+/* ---------- 海と浜 ---------- */
+/* 海（Depth Fade の翻訳: 地平線の明帯→浅瀬シアン→深部ティール） */
+.jz-sea{
+  position:absolute; left:0; right:0; bottom:0; height:36%;
+  background:linear-gradient(180deg,
+    #a8ead9 0%, #63d4c8 15%, #2fae9f 42%, #17808a 70%, #0d5666 100%);
+  transition:filter 1.8s;
+  overflow:hidden;
+}
+/* 夜明け/夕暮れだけ地平線が燃える */
+.jz-sea::before{
+  content:""; position:absolute; left:0; right:0; top:0; height:10%;
+  background:linear-gradient(180deg, rgba(255,203,135,.95), rgba(255,203,135,0));
+  opacity:0; transition:opacity 1.8s; pointer-events:none;
+}
+.t-dawn .jz-sea::before,.t-dusk .jz-sea::before{opacity:1;}
+.t-night .jz-sea,.t-predawn .jz-sea{filter:brightness(.45) saturate(.7);}
+.t-dawn .jz-sea{filter:brightness(.85) hue-rotate(-8deg);}
+.jz-wave{
+  position:absolute; left:-60px; right:-60px; height:16px; border-radius:50%;
+  background:radial-gradient(closest-side, rgba(255,246,224,.55), rgba(255,246,224,0) 72%);
+  opacity:.5; animation:jzDrift 7s ease-in-out infinite;
+}
+.jz-shore{
+  position:absolute; left:-8%; right:-8%; bottom:-4%; height:30%;
+  background:radial-gradient(120% 100% at 50% 100%, var(--jzSand) 58%, var(--jzSand2) 78%, rgba(220,191,133,0) 79%);
+  transition:filter 1.8s;
+}
+.t-night .jz-shore,.t-predawn .jz-shore{filter:brightness(.5);}
+
+/* ---------- ジャングルの地面（LIVE JUNGLE用） ---------- */
+.jz-ground{
+  position:absolute; left:-10%; right:-10%; bottom:-6%; height:44%;
+  background:radial-gradient(130% 100% at 50% 100%, #2f7a4d 0%, #1e5d3a 52%, #123f27 78%, rgba(18,63,39,0) 79%);
+  transition:filter 1.8s;
+}
+.t-night .jz-ground,.t-predawn .jz-ground{filter:brightness(.42) saturate(.8);}
+.t-dawn .jz-ground{filter:brightness(.8);}
+.jz-path{
+  position:absolute; left:50%; bottom:0; width:220px; height:26%; transform:translateX(-50%);
+  background:radial-gradient(60% 100% at 50% 100%, #caa06a 0%, #b98d55 60%, rgba(185,141,85,0) 78%);
+  opacity:.85; border-radius:50% 50% 0 0;
+}
+
+/* ---------- 遠景・中景・前景 ---------- */
+.jz-far{position:absolute; left:0; right:0; pointer-events:none; transition:filter 1.8s, opacity 1.8s;}
+.t-night .jz-far,.t-predawn .jz-far{filter:brightness(.5) saturate(.6);}
+.jz-palmwrap{position:absolute; pointer-events:none; transform-origin:bottom center;
+  animation:jzSway 6.5s ease-in-out infinite; transition:filter 1.8s;}
+.t-night .jz-palmwrap,.t-predawn .jz-palmwrap{filter:brightness(.45);}
+.jz-canopy{
+  position:absolute; left:0; right:0; top:-40px; height:150px; pointer-events:none;
+  transition:filter 1.8s;
+}
+.t-night .jz-canopy{filter:brightness(.5);}
+
+/* ---------- 命（光・蛍・鳥） ---------- */
+.jz-fly{
+  position:absolute; width:6px; height:6px; border-radius:50%;
+  background:#ffe9a3; box-shadow:0 0 14px 5px rgba(255,220,120,.45);
+  animation:jzFloat 8s ease-in-out infinite, jzTwinkle 2.4s ease-in-out infinite;
+  pointer-events:none;
+}
+.jz-bird{position:absolute; pointer-events:none; animation:jzFlyBy linear infinite;}
+.jz-bird svg{animation:jzFlap .5s ease-in-out infinite alternate; transform-origin:center;}
+
+/* ---------- ボート ---------- */
+.jz-boat{position:absolute; pointer-events:none; animation:jzBob 3.4s ease-in-out infinite;
+  transition:transform 3.2s cubic-bezier(.35,.1,.25,1), left 3.2s cubic-bezier(.35,.1,.25,1);}
+
+/* ---------- ロゴ（§67 冒険感のあるDisplay。書体でなく組みで作る） ---------- */
+.jz-title-center{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; padding:24px; z-index:20; text-align:center;
+}
+/* 明るい背景画像でもロゴが沈まないよう、文字の背後だけ柔らかく暗くする */
+.jz-title-center::before{
+  content:""; position:absolute; left:50%; top:46%; width:min(600px, 100vw); height:400px;
+  transform:translate(-50%,-50%); pointer-events:none; z-index:-1;
+  background:radial-gradient(closest-side, rgba(22,12,32,.46), transparent 76%);
+}
+.jz-logo{
+  font-weight:900; line-height:.94; letter-spacing:.04em;
+  font-size:clamp(58px, 16vw, 128px);
+  color:var(--jzCream);
+  text-shadow:0 2px 0 rgba(60,30,0,.18), 0 12px 34px rgba(0,0,0,.4);
+  animation:jzLogoIn 1.1s cubic-bezier(.2,.8,.25,1) both .3s;
+}
+.jz-logo .g{
+  color:var(--jzGold);
+  text-shadow:0 3px 0 rgba(110,55,0,.5), 0 7px 20px rgba(60,20,0,.55),
+              0 14px 44px rgba(242,193,78,.35);
+}
+.jz-tagline{
+  margin-top:14px; font-size:13px; font-weight:800; letter-spacing:.34em; text-indent:.34em;
+  color:rgba(255,246,224,.85); text-transform:uppercase;
+  animation:jzFadeUp .9s ease both .9s;
+}
+.jz-copy{
+  margin-top:10px; font-size:14px; font-weight:700; line-height:1.8; color:rgba(255,246,224,.92);
+  text-shadow:0 2px 10px rgba(0,0,0,.35);
+  animation:jzFadeUp .9s ease both 1.15s;
+}
+.jz-title-btns{
+  margin-top:34px; display:flex; flex-direction:column; gap:12px; width:min(320px, 84vw);
+  animation:jzFadeUp .9s ease both 1.4s;
+}
+.jz-foot{
+  position:absolute; bottom:14px; left:0; right:0; text-align:center;
+  font-size:11px; color:rgba(255,246,224,.5); letter-spacing:.08em; z-index:20; line-height:1.7;
+}
+
+/* ---------- ボタン（§68 押した感触 / §71 Bootstrap感禁止） ---------- */
+.jz-btn{
+  appearance:none; border:0; cursor:pointer; font-family:inherit;
+  font-weight:900; font-size:17px; letter-spacing:.02em;
+  padding:16px 26px; border-radius:18px; color:#3a2c07;
+  background:linear-gradient(180deg,#ffe08a 0%,#f5c542 58%,#e7ab2d 100%);
+  box-shadow:0 6px 0 var(--jzGoldDeep), 0 16px 32px rgba(0,0,0,.35),
+             inset 0 2px 0 rgba(255,255,255,.6);
+  transition:transform .08s ease, box-shadow .08s ease, filter .2s;
+}
+.jz-btn:active{
+  transform:translateY(5px);
+  box-shadow:0 1px 0 var(--jzGoldDeep), 0 8px 16px rgba(0,0,0,.3),
+             inset 0 2px 0 rgba(255,255,255,.6);
+}
+.jz-btn:disabled{filter:grayscale(.55) brightness(.8); cursor:default;}
+.jz-btn.ghost{
+  background:rgba(9,30,20,.55); color:var(--jzCream);
+  box-shadow:inset 0 0 0 2px rgba(255,246,224,.3), 0 10px 24px rgba(0,0,0,.28);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+.jz-btn.ghost:active{transform:translateY(3px);}
+
+/* ---------- 店が大きくなった瞬間（§80 良い変化は大きく・遅く） ---------- */
+.jz-grow{
+  position:absolute; inset:0; display:grid; place-items:center; z-index:40;
+  pointer-events:none; animation:jzGrowFade 3.4s ease forwards;
+}
+.jz-grow-in{
+  text-align:center; padding:22px 34px; border-radius:22px;
+  background:rgba(8,26,18,.72); backdrop-filter:blur(12px);
+  border:2px solid rgba(255,216,90,.5);
+  box-shadow:0 18px 50px rgba(0,0,0,.45), 0 0 60px rgba(255,200,80,.25);
+  animation:jzGrowPop .8s cubic-bezier(.2,1.2,.35,1);
+}
+.jz-grow-in .lbl{
+  font-size:11px; font-weight:900; letter-spacing:.24em;
+  color:rgba(255,246,224,.7);
+}
+.jz-grow-in .nm{
+  font-size:32px; font-weight:900; color:var(--jzGold); margin-top:4px;
+  text-shadow:0 3px 14px rgba(0,0,0,.5);
+}
+.jz-grow-in .sub{
+  font-size:13px; font-weight:700; color:rgba(255,246,224,.85); margin-top:6px;
+}
+@keyframes jzGrowPop{
+  0%{transform:scale(.7); opacity:0;}
+  100%{transform:scale(1); opacity:1;}
+}
+@keyframes jzGrowFade{
+  0%,72%{opacity:1;}
+  100%{opacity:0;}
+}
+@media (prefers-reduced-motion: reduce){
+  .jz-grow{animation:jzGrowFade 3.4s steps(2) forwards;}
+  .jz-grow-in{animation:none;}
+}
+
+/* ---------- HUD ---------- */
+.jz-hud{
+  position:absolute; top:calc(10px + env(safe-area-inset-top)); left:12px; right:12px;
+  display:flex; flex-direction:column; gap:7px; z-index:30;
+  pointer-events:none;
+}
+.jz-hud-row{display:flex; justify-content:space-between; align-items:flex-start;}
+/* 危機HUD（RUNWAY / マクロ事象）— 平常時は控えめ、危ないときだけ色で主張する */
+.jz-hud-sub{display:flex; gap:7px; flex-wrap:wrap;}
+.jz-hud-sub .jz-chip{padding:6px 11px; font-size:11px; line-height:1.25;}
+.jz-hud-sub .lbl{font-size:9px; letter-spacing:.16em; color:rgba(255,246,224,.6); font-weight:900;}
+.jz-hud-sub .val{font-size:14px; font-weight:900; font-variant-numeric:tabular-nums;}
+.jz-rw.ok .val, .jz-macro.ok .val{color:var(--jzCream);}
+.jz-rw.warn, .jz-macro.warn{border-color:rgba(245,184,0,.55); background:rgba(60,42,4,.66);}
+.jz-rw.warn .val, .jz-macro.warn .val{color:#f5b800;}
+.jz-rw.bad, .jz-macro.bad{border-color:rgba(230,80,60,.6); background:rgba(62,16,12,.7);}
+.jz-rw.bad .val, .jz-macro.bad .val{color:#ff7a63;}
+.jz-rw.bad{animation:jzPulseRw 1.9s ease-in-out infinite;}
+@keyframes jzPulseRw{0%,100%{box-shadow:0 8px 20px rgba(0,0,0,.25);}50%{box-shadow:0 8px 26px rgba(230,80,60,.45);}}
+@media (prefers-reduced-motion: reduce){ .jz-rw.bad{animation:none;} }
+.jz-chip{
+  pointer-events:auto;
+  background:rgba(8,26,18,.62); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(255,246,224,.16); border-radius:16px;
+  padding:9px 15px; font-weight:800; font-size:13px; color:var(--jzCream);
+  box-shadow:0 8px 20px rgba(0,0,0,.25);
+}
+.jz-cashchip{text-align:right;}
+.jz-cashchip .lbl{font-size:10px; letter-spacing:.22em; color:rgba(255,246,224,.62); font-weight:900;}
+.jz-cashchip .val{
+  font-size:21px; font-weight:900; color:var(--jzGold);
+  font-variant-numeric:tabular-nums; line-height:1.15;
+  text-shadow:0 2px 8px rgba(0,0,0,.4);
+}
+.jz-cashchip.bump .val{animation:jzBump .45s cubic-bezier(.2,.9,.3,1.4);}
+
+/* ---------- 下部ナビ（§44） ---------- */
+/* 絶対配置で left:50% + translateX(-50%) にすると、幅の計算に使える領域が
+   「画面の右半分」だけになり、中身が潰れて1文字ずつ折り返される。
+   left:0/right:0 で全幅を渡し、margin:auto で中央に置くのが正しい。 */
+.jz-nav{
+  position:absolute; left:0; right:0; margin-inline:auto;
+  width:fit-content; max-width:calc(100% - 20px);
+  bottom:calc(14px + env(safe-area-inset-bottom));
+  display:flex; align-items:center; gap:8px; z-index:35;
+  background:rgba(8,26,18,.66); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,246,224,.14); border-radius:22px; padding:8px;
+  box-shadow:0 18px 40px rgba(0,0,0,.4);
+}
+.jz-nav .tab{
+  appearance:none; border:0; background:transparent; color:rgba(255,246,224,.72);
+  font-family:inherit; font-weight:800; font-size:10.5px; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  padding:8px 10px; border-radius:15px; transition:.15s;
+  white-space:nowrap; flex:0 0 auto; min-width:56px; min-height:52px;
+}
+.jz-nav .tab .ic{font-size:19px; line-height:1;}
+.jz-nav .tab.on{background:rgba(47,191,113,.18); color:var(--jzCream);}
+.jz-nav .tab:active{transform:scale(.94);}
+.jz-nav .cta{
+  border-radius:16px; padding:0 18px; font-size:14.5px;
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  white-space:nowrap; flex:0 0 auto; min-height:52px;
+}
+
+/* プラン画面から世界へ戻るチップ */
+.jz-backchip{
+  position:fixed; left:12px; bottom:86px; z-index:60;
+  appearance:none; border:0; cursor:pointer; font-family:inherit;
+  background:rgba(8,26,18,.78); color:var(--jzCream);
+  border:1px solid rgba(255,246,224,.22); border-radius:16px;
+  padding:11px 16px; font-weight:900; font-size:13px;
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  box-shadow:0 12px 26px rgba(0,0,0,.35);
+}
+.jz-backchip:active{transform:scale(.95);}
+
+/* ---------- 会話バー（§77-78：下部・半透明・腰上・短文） ---------- */
+.jz-dlg{
+  position:absolute; left:10px; right:10px;
+  bottom:calc(12px + env(safe-area-inset-bottom));
+  display:flex; gap:12px; align-items:flex-end; z-index:45;
+  animation:jzFadeUp .35s ease both;
+}
+.jz-dlg .who{flex:0 0 auto; width:112px; filter:drop-shadow(0 12px 18px rgba(0,0,0,.4));}
+.jz-dlg .box{
+  flex:1; min-height:96px; cursor:pointer;
+  background:rgba(7,24,16,.76); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(255,246,224,.16); border-radius:20px;
+  padding:14px 18px 12px; position:relative;
+  box-shadow:0 18px 40px rgba(0,0,0,.4);
+}
+.jz-dlg .name{
+  font-size:11px; font-weight:900; letter-spacing:.24em; color:var(--jzGold); margin-bottom:5px;
+}
+.jz-dlg .txt{font-size:15.5px; line-height:1.7; font-weight:700; min-height:2.6em;}
+.jz-dlg .tap{
+  position:absolute; right:14px; bottom:8px; font-size:12px; color:rgba(255,246,224,.6);
+  animation:jzNudge 1.1s ease-in-out infinite;
+}
+.jz-skip{
+  position:absolute; top:calc(12px + env(safe-area-inset-top)); right:12px; z-index:46;
+  appearance:none; border:0; cursor:pointer; font-family:inherit;
+  background:rgba(8,26,18,.5); color:rgba(255,246,224,.75);
+  border:1px solid rgba(255,246,224,.18); border-radius:13px;
+  padding:8px 13px; font-weight:800; font-size:12px;
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+
+/* ---------- 事業選択（§36,§84：カードでなく世界を選ぶ） ---------- */
+.jz-hint{
+  position:absolute; top:calc(56px + env(safe-area-inset-top)); left:0; right:0;
+  display:flex; justify-content:center; z-index:28; pointer-events:none;
+  animation:jzFadeUp .5s ease both;
+}
+.jz-plot{
+  position:absolute; left:50%; bottom:33%; transform:translateX(-50%);
+  width:min(430px, 88vw, 60vh); z-index:14; pointer-events:none;
+}
+.jz-plot .empty{
+  text-align:center; color:rgba(255,246,224,.85); font-weight:800; font-size:13px;
+  text-shadow:0 2px 8px rgba(0,0,0,.4);
+}
+/* ---- 難易度＝どの島で戦うか（§4）---- */
+.jz-islebar{
+  /* 事業トーテム（bottom 92px・高さ約155px）の上に置く */
+  position:absolute; left:0; right:0; bottom:calc(258px + env(safe-area-inset-bottom));
+  z-index:30; display:flex; flex-direction:column; gap:5px; padding:0 10px;
+}
+.jz-isles{ display:flex; gap:5px; justify-content:center; }
+.jz-isle{
+  flex:1 1 0; min-width:0; cursor:pointer; font-family:inherit; text-align:center;
+  display:flex; flex-direction:column; align-items:center; gap:1px;
+  background:rgba(8,26,18,.62); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  border:2px solid rgba(255,246,224,.12); border-radius:13px; padding:6px 4px;
+  color:rgba(255,246,224,.92); transition:border-color .12s, transform .08s;
+}
+.jz-isle:active{transform:scale(.97);}
+.jz-isle.on{border-color:var(--jzGold,#ffd23f); background:rgba(60,44,8,.74);}
+.jz-isle .ie{font-size:16px; line-height:1;}
+.jz-isle .il{font-size:9.5px; font-weight:900; letter-spacing:.02em; white-space:nowrap;}
+.jz-isle .ic{display:none;}                     /* 狭い画面では説明は下の1行に集約する */
+@media(min-width:560px){
+  .jz-isles{gap:8px;}
+  .jz-isle{flex:0 1 132px; padding:8px 10px;}
+  .jz-isle .ie{font-size:19px;}
+  .jz-isle .il{font-size:11px;}
+  .jz-isle .ic{display:block; font-size:9px; opacity:.72; line-height:1.25;}
+}
+.jz-isledesc{
+  text-align:center; font-size:10px; line-height:1.4; min-height:26px;
+  color:rgba(255,246,224,.94); text-shadow:0 1px 4px rgba(0,0,0,.7);
+  background:rgba(8,26,18,.42); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  border-radius:10px; padding:5px 8px; align-self:center; max-width:520px;
+}
+.jz-isledesc b{font-size:11px;}
+.jz-totems{
+  position:absolute; left:0; right:0; bottom:calc(92px + env(safe-area-inset-bottom));
+  display:flex; gap:9px; padding:6px 12px; z-index:30;
+  overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch;
+  justify-content:flex-start;
+}
+.jz-totems::-webkit-scrollbar{display:none;}
+@media(min-width:720px){ .jz-totems{justify-content:center;} }
+.jz-totem{
+  flex:0 0 auto; width:124px; cursor:pointer; font-family:inherit; text-align:left;
+  background:rgba(8,26,18,.6); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  border:2px solid rgba(255,246,224,.12); border-radius:18px; padding:11px 12px;
+  color:var(--jzCream); transition:.16s; box-shadow:0 10px 24px rgba(0,0,0,.28);
+}
+.jz-totem .em{font-size:26px; line-height:1;}
+.jz-totem .nm{font-weight:900; font-size:13px; margin-top:6px; line-height:1.3;}
+.jz-totem .st{font-size:10px; color:rgba(255,246,224,.62); margin-top:5px; line-height:1.55; font-weight:700;}
+.jz-totem.on{
+  border-color:var(--jzGold); background:rgba(24,58,40,.82);
+  transform:translateY(-7px);
+  box-shadow:0 16px 30px rgba(0,0,0,.4), 0 0 0 4px rgba(242,193,78,.15);
+}
+.jz-confirm{
+  position:absolute; left:50%; transform:translateX(-50%);
+  bottom:calc(16px + env(safe-area-inset-bottom)); z-index:31; width:min(340px, 86vw);
+}
+
+/* ---------- 初売り（§37） ---------- */
+.jz-bubble{
+  position:absolute; z-index:40;
+  background:var(--jzCream); color:var(--jzInk);
+  border-radius:18px; padding:12px 16px; font-weight:900; font-size:15px;
+  box-shadow:0 14px 30px rgba(0,0,0,.3);
+  animation:jzPopIn .4s cubic-bezier(.2,.9,.3,1.3) both;
+}
+.jz-bubble:after{
+  content:""; position:absolute; bottom:-9px; left:50%; margin-left:-9px;
+  border:9px solid transparent; border-top-color:var(--jzCream); border-bottom:0;
+}
+.jz-prices{
+  position:absolute; left:0; right:0; bottom:calc(30px + env(safe-area-inset-bottom));
+  display:flex; gap:12px; justify-content:center; z-index:44; padding:0 14px;
+}
+.jz-price{
+  appearance:none; border:0; cursor:pointer; font-family:inherit;
+  min-width:96px; padding:16px 10px 13px; border-radius:20px; text-align:center;
+  background:rgba(8,26,18,.72); color:var(--jzCream);
+  border:2px solid rgba(255,246,224,.2);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  box-shadow:0 14px 30px rgba(0,0,0,.35);
+  transition:.14s; animation:jzPopIn .45s cubic-bezier(.2,.9,.3,1.3) both;
+}
+.jz-price .yen{font-size:20px; font-weight:900; font-variant-numeric:tabular-nums; color:var(--jzGold);}
+.jz-price .tag{font-size:10.5px; font-weight:800; color:rgba(255,246,224,.66); margin-top:4px;}
+.jz-price:active{transform:scale(.93);}
+
+/* ---------- コイン・ポップ（§68） ---------- */
+.jz-coin{
+  position:fixed; width:24px; height:24px; border-radius:50%; z-index:90; pointer-events:none;
+  background:radial-gradient(circle at 35% 30%, #ffedb0, #f2c14e 56%, #c8891a 100%);
+  box-shadow:0 2px 6px rgba(0,0,0,.35), inset 0 -3px 5px rgba(120,70,0,.4), inset 0 2px 3px rgba(255,255,255,.6);
+}
+.jz-pop{
+  position:fixed; z-index:91; pointer-events:none;
+  font-weight:900; font-size:22px; color:#ffe9a3; font-variant-numeric:tabular-nums;
+  text-shadow:0 2px 3px rgba(90,50,0,.55), 0 6px 18px rgba(0,0,0,.45);
+  animation:jzPopUp 1.15s ease forwards;
+}
+
+/* ---------- 店（成長§6・ランタン§7） ---------- */
+/* 店は「主役」。画面の中央に、大きく置く。
+   小さく下に寄せると上半分が空いて、書き割りのように見える（§没入感）。 */
+.jz-stall{
+  position:absolute; left:50%; bottom:26%; transform:translateX(-50%);
+  width:min(560px, 96vw, 72vh); z-index:15;
+  transition:filter 1.8s, width .6s cubic-bezier(.2,.9,.3,1.2), bottom .6s ease;
+}
+/* 素材の上端で建物が断ち切られているものがある（屋根が画像の外に出ている）。
+   そのままだと水平の切断線が出て「貼り付けた四角」に見えるので、
+   上だけソフトに抜いて、葉陰に溶けるように見せる。
+   ——新しい素材で上端に余白が入れば、この処理は外してよい。 */
+.jz-stall img{
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 7%, #000 100%);
+          mask-image:linear-gradient(to bottom, transparent 0, #000 7%, #000 100%);
+  filter:drop-shadow(0 18px 22px rgba(0,0,0,.32));
+}
+/* 4段階素材は上下12%以上の透明余白つき。画像自体をフェードさせず、全画素を出す。 */
+.jz-stall img.jz-stall-stage{
+  -webkit-mask-image:none;
+          mask-image:none;
+}
+/* 接地感。影がないと、切り抜きが宙に浮いて見える */
+.jz-stall::after{
+  content:""; position:absolute; left:50%; transform:translateX(-50%);
+  bottom:-2%; width:78%; height:7%;
+  background:radial-gradient(ellipse at center, rgba(0,0,0,.34), rgba(0,0,0,0) 70%);
+  pointer-events:none;
+}
+/* 4段階素材の接地面はキャンバス下端ではなく、およそ下12%の位置にある。 */
+.jz-stall:has(> img.jz-stall-stage)::after{bottom:10%;}
+.t-night .jz-stall,.t-predawn .jz-stall{filter:brightness(.62) drop-shadow(0 18px 22px rgba(0,0,0,.5));}
+.jz-lantern{
+  position:absolute; width:52px; height:52px; border-radius:50%; z-index:16; pointer-events:none;
+  background:radial-gradient(circle, rgba(255,214,120,.85), rgba(255,190,90,.25) 55%, transparent 72%);
+  opacity:0; transition:opacity 1.4s; animation:jzGlow 2.6s ease-in-out infinite;
+}
+.t-night .jz-lantern,.t-predawn .jz-lantern,.t-dusk .jz-lantern{opacity:1;}
+
+/* 歩く観光客（§5 世界が動いている） */
+.jz-walker{position:absolute; bottom:17%; z-index:14; pointer-events:none;
+  animation-name:jzWalkX; animation-timing-function:linear; animation-iteration-count:infinite;}
+.jz-walker .b{animation:jzWalkBob .6s ease-in-out infinite; transform-origin:bottom center;}
+.jz-walker.rev{animation-name:jzWalkXRev;}
+
+/* ---------- 奥行き・空気 ---------- */
+.jz-vig{
+  position:absolute; inset:0; pointer-events:none; z-index:22;
+  background:radial-gradient(125% 92% at 50% 42%, transparent 52%, rgba(4,14,9,.5) 100%);
+}
+/* ゴッドレイ（Volumetric Light の翻訳: 太陽を中心とした放射光条。超低速で回る） */
+.jz-godray{
+  position:absolute; left:50%; bottom:34%; width:200vmax; height:200vmax;
+  margin-left:-100vmax; margin-bottom:-100vmax; z-index:11; pointer-events:none;
+  background:repeating-conic-gradient(from -6deg at 50% 50%,
+    rgba(255,216,145,.13) 0deg 3.6deg, rgba(255,216,145,0) 3.6deg 13deg);
+  -webkit-mask-image:radial-gradient(closest-side, rgba(0,0,0,.95), transparent 62%);
+  mask-image:radial-gradient(closest-side, rgba(0,0,0,.95), transparent 62%);
+  opacity:0; transition:opacity 1.8s, bottom 2.4s ease;
+  animation:jzRayTurn 90s linear infinite;
+}
+@keyframes jzRayTurn{to{transform:rotate(10deg)}}
+.t-dawn .jz-godray,.t-dusk .jz-godray{opacity:.9;}
+.t-day .jz-godray{opacity:.3; bottom:62%;}
+
+/* ---------- 汎用アニメーション ---------- */
+.jz-popin{animation:jzPopIn .5s cubic-bezier(.2,.9,.3,1.25) both;}
+.jz-fadeup{animation:jzFadeUp .6s ease both;}
+
+@keyframes jzSway{0%,100%{transform:rotate(-1.6deg)}50%{transform:rotate(2.2deg)}}
+@keyframes jzBob{0%,100%{margin-bottom:0}50%{margin-bottom:9px}}
+@keyframes jzDrift{0%,100%{transform:translateX(-14px)}50%{transform:translateX(14px)}}
+@keyframes jzFloat{0%,100%{transform:translate(0,0)}25%{transform:translate(13px,-11px)}50%{transform:translate(-7px,-20px)}75%{transform:translate(-15px,-6px)}}
+@keyframes jzTwinkle{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes jzFlyBy{from{left:-70px}to{left:108%}}
+@keyframes jzFlap{from{transform:scaleY(.62)}to{transform:scaleY(1.05)}}
+@keyframes jzWalkX{from{left:-90px}to{left:106%}}
+@keyframes jzWalkXRev{from{left:106%}to{left:-90px}}
+@keyframes jzWalkBob{0%,100%{transform:translateY(0) rotate(-1.4deg)}50%{transform:translateY(-3px) rotate(1.4deg)}}
+@keyframes jzLogoIn{
+  from{opacity:0; transform:translateY(26px) scale(.94); letter-spacing:.2em;}
+  to{opacity:1; transform:none; letter-spacing:.04em;}
+}
+@keyframes jzFadeUp{from{opacity:0; transform:translateY(16px)}to{opacity:1; transform:none}}
+@keyframes jzPopIn{from{opacity:0; transform:translateY(14px) scale(.85)}60%{transform:scale(1.06)}to{opacity:1; transform:none}}
+@keyframes jzPopUp{0%{opacity:0; transform:translateY(8px) scale(.8)}18%{opacity:1; transform:scale(1.18)}100%{opacity:0; transform:translateY(-40px) scale(1)}}
+@keyframes jzBump{0%{transform:scale(1)}35%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes jzNudge{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+@keyframes jzGlow{0%,100%{transform:scale(1); opacity:.95}50%{transform:scale(1.14); opacity:.7}}
+@keyframes jzBreath{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.022)}}
+@keyframes jzBlink{0%,93%,100%{transform:scaleY(.06)}95%,97%{transform:scaleY(1)}}
+
+/* キャラの息づかい（§30 完全静止画は禁止） */
+.jz-breath{transform-origin:50% 92%; animation:jzBreath 3.4s ease-in-out infinite;}
+.jz-lid{transform-origin:center 20%; transform:scaleY(.06); animation:jzBlink 4.6s infinite;}
+.jz-lid.d2{animation-delay:.9s;}
+
+/* ---------- アクセシビリティ（§90） ---------- */
+@media (prefers-reduced-motion: reduce){
+  .jz-stage *, .jz-stage{animation-duration:.001s !important; animation-iteration-count:1 !important;
+    transition-duration:.001s !important;}
+}
+
+/* ---------- モバイル微調整 ---------- */
+@media (max-width:420px){
+  .jz-dlg .who{width:88px;}
+  .jz-dlg .txt{font-size:14.5px;}
+  .jz-logo{font-size:clamp(52px, 19vw, 92px);}
+  .jz-stall{bottom:22%;}
+}
+
+/* =========================================================================
+   実装指示書 第2弾 対応分
+   ========================================================================= */
+
+/* ---------- §4 パララックス層 ---------- */
+.jz-par{
+  position:absolute; inset:0; pointer-events:none;
+  transform:scale(1.05); will-change:transform;
+}
+
+/* ---------- §32 Glass UIの質感強化（highlight / inner border / warm tint） ---------- */
+.jz-chip, .jz-dlg .box, .jz-nav, .jz-totem, .jz-price, .jz-backchip{
+  background-image:linear-gradient(180deg, rgba(255,246,224,.07), rgba(255,246,224,0) 42%);
+  box-shadow:0 10px 26px rgba(0,0,0,.3),
+             inset 0 1px 0 rgba(255,246,224,.28),
+             inset 0 -1px 0 rgba(0,0,0,.22);
+}
+.jz-nav{box-shadow:0 18px 40px rgba(0,0,0,.42),
+             inset 0 1px 0 rgba(255,246,224,.26),
+             inset 0 -1px 0 rgba(0,0,0,.25);}
+
+/* ---------- §33 デスクトップで会話を読みやすく ---------- */
+@media (min-width:760px){
+  .jz-dlg{left:50%; right:auto; transform:translateX(-50%); width:min(760px, 92vw);}
+  .jz-dlg .who{width:136px;}
+  .jz-dlg .txt{font-size:17px;}
+}
+
+/* ---------- §83 店主の名前入力 ---------- */
+.jz-nameinput{
+  appearance:none; width:100%; margin-bottom:10px; font-family:inherit;
+  background:rgba(8,26,18,.66); color:var(--jzCream);
+  border:1px solid rgba(255,246,224,.22); border-radius:15px;
+  padding:13px 16px; font-weight:800; font-size:14px; text-align:center;
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); outline:none;
+}
+.jz-nameinput::placeholder{color:rgba(255,246,224,.42); font-weight:700;}
+.jz-nameinput:focus{border-color:var(--jzGold); box-shadow:0 0 0 3px rgba(242,193,78,.18);}
+
+/* ---------- §16 店名スプラッシュ ---------- */
+.jz-shopsplash{
+  position:absolute; inset:0; z-index:55; pointer-events:none;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; animation:jzPopIn .55s cubic-bezier(.2,.9,.3,1.25) both;
+  background:radial-gradient(70% 55% at 50% 48%, rgba(5,18,12,.55), rgba(5,18,12,0) 78%);
+  text-shadow:0 3px 14px rgba(0,0,0,.5);
+}
+.jz-shopsplash .own{font-size:19px; font-weight:900; color:rgba(255,246,224,.92); letter-spacing:.1em;}
+.jz-shopsplash .shp{font-size:clamp(30px, 7.5vw, 46px); font-weight:900; color:var(--jzGold); margin-top:6px;}
+.jz-shopsplash .opn{font-size:13px; font-weight:900; letter-spacing:.5em; text-indent:.5em;
+  color:rgba(255,246,224,.75); margin-top:14px;}
+
+/* ---------- §18 FIRST SALE! バナー / 主人公ジャンプ ---------- */
+.jz-firstsale{
+  position:absolute; left:50%; top:34%; transform:translateX(-50%); z-index:56; pointer-events:none;
+  font-size:clamp(26px, 6.5vw, 40px); font-weight:900; letter-spacing:.08em;
+  color:var(--jzGold); text-shadow:0 2px 0 rgba(120,70,0,.4), 0 8px 26px rgba(0,0,0,.5);
+  animation:jzPopIn .5s cubic-bezier(.2,.9,.3,1.3) both, jzFadeOut .5s ease 1.2s forwards;
+}
+@keyframes jzFadeOut{to{opacity:0; transform:translateX(-50%) translateY(-18px);}}
+.jz-jump{animation:jzJump .85s cubic-bezier(.3,.8,.4,1) both;}
+@keyframes jzJump{
+  0%{transform:none} 28%{transform:translateY(-30px) rotate(-3deg)}
+  52%{transform:none} 70%{transform:translateY(-12px) rotate(2deg)} 100%{transform:none}
+}
+
+/* ---------- §29 満足度ハート ---------- */
+.jz-heart{
+  position:absolute; top:-16px; left:50%; margin-left:-8px; z-index:14;
+  font-size:15px; color:var(--jzCoral);
+  text-shadow:0 2px 6px rgba(0,0,0,.3);
+  animation:jzHeartFloat 2.2s ease-in-out infinite;
+}
+@keyframes jzHeartFloat{
+  0%,100%{opacity:0; transform:translateY(4px) scale(.8)}
+  30%{opacity:1; transform:translateY(-6px) scale(1.05)}
+  70%{opacity:.85; transform:translateY(-14px) scale(1)}
+}
+
+/* =========================================================================
+   North Star対応：光と水の質感（シェーダーロジックのCSS翻訳）
+   ========================================================================= */
+
+/* 太陽の反射帯（Sun path: 水面に落ちる縦の輝き。shimmerで揺れる） */
+.jz-sunpath{
+  position:absolute; left:50%; top:0; bottom:0; width:170px;
+  transform:translateX(-50%); pointer-events:none;
+  background:linear-gradient(180deg,
+    rgba(255,240,180,.92) 0%, rgba(255,205,125,.45) 40%, rgba(255,190,110,.14) 72%, rgba(255,190,110,0) 100%);
+  clip-path:polygon(40% 0, 60% 0, 92% 100%, 8% 100%);
+  filter:blur(2px);
+  opacity:0; transition:opacity 1.8s;
+  animation:jzShimmer 3.4s ease-in-out infinite;
+}
+.t-dawn .jz-sunpath,.t-dusk .jz-sunpath{opacity:.95;}
+.t-day .jz-sunpath{opacity:.2;}
+@keyframes jzShimmer{
+  0%,100%{filter:blur(2px) brightness(1); transform:translateX(-50%) scaleX(1);}
+  50%{filter:blur(3px) brightness(1.2); transform:translateX(-50%) scaleX(1.06);}
+}
+
+/* 水面のきらめき（Caustics の翻訳: 小さな光の破片） */
+.jz-glint{
+  position:absolute; width:26px; height:3.5px; border-radius:2px; pointer-events:none;
+  background:linear-gradient(90deg, transparent, rgba(255,248,225,.95), transparent);
+  animation:jzTwinkle 2.6s ease-in-out infinite;
+}
+.t-night .jz-glint,.t-predawn .jz-glint{opacity:.25;}
+
+/* 波打ち際の泡（寄せては返す） */
+.jz-foam{
+  position:absolute; left:-4%; right:-4%; height:22px; pointer-events:none;
+  background:radial-gradient(13px 8px at 13px 7px, rgba(255,252,242,.85) 42%, rgba(255,252,242,0) 66%) repeat-x;
+  background-size:27px 16px; filter:blur(1px); opacity:.6;
+  animation:jzFoamMove 5.4s ease-in-out infinite;
+}
+@keyframes jzFoamMove{
+  0%,100%{transform:translateY(0); opacity:.85;}
+  50%{transform:translateY(8px); opacity:.55;}
+}
+.t-night .jz-foam,.t-predawn .jz-foam{opacity:.3;}
+
+/* 前景のシダ（植生の密度アップ） */
+.jz-fernwrap{
+  position:absolute; pointer-events:none; transform-origin:bottom center;
+  animation:jzSway 5.2s ease-in-out infinite; transition:filter 1.8s;
+}
+.t-night .jz-fernwrap,.t-predawn .jz-fernwrap{filter:brightness(.45);}
+
+/* =========================================================================
+   画像アセット層（docs/ASSET_BRIEF.md の絵が assets/ にある時だけ登場）
+   ========================================================================= */
+.jz-bgimg{
+  position:absolute; inset:0; pointer-events:none;
+  background-size:cover; background-position:center bottom;
+  transition:filter 1.8s ease, opacity 1.5s ease;
+}
+/* 木と葉のゆらぎ：SVGの乱流変位で、1枚絵でも葉が部分ごとに風になびく。
+   歪みで端が欠けないよう少し拡大して置く（-3%〜106%）。 */
+.jz-bgimg.sway{
+  filter:url(#leafSway); will-change:filter;
+  background-size:107%; inset:-3%;
+}
+@media (prefers-reduced-motion: reduce){ .jz-bgimg.sway{ filter:none; } }
+/* 夜専用画像が無い時は昼画像をCSSで夜に落とす。raw=その時間帯の絵そのもの（触らない） */
+.t-night .jz-bgimg:not(.raw),
+.t-predawn .jz-bgimg:not(.raw){filter:brightness(.42) saturate(.72) hue-rotate(-10deg);}
+
+/* ---------- WEEK RESULT 段階演出（§22-23） ---------- */
+.jz-rowin{animation:jzRowIn .38s cubic-bezier(.2,.9,.3,1.2) both;}
+@keyframes jzRowIn{from{opacity:0; transform:translateY(9px)}to{opacity:1; transform:none}}
+.jz-profitrow{font-size:17px; padding:10px 2px !important; border-radius:12px;}
+.jz-profitrow small{font-size:11px; opacity:.7; font-weight:800;}
+.jz-profitrow.good{background:linear-gradient(90deg, rgba(47,191,113,.12), rgba(47,191,113,.02));}
+.jz-profitrow.good b{color:var(--leaf-500, #2fbf71);}
+.jz-profitrow.bad{background:linear-gradient(90deg, rgba(255,90,95,.12), rgba(255,90,95,.02));}
+.jz-profitrow.bad b{color:var(--coral, #ff5a5f);}
+.jz-profitrow.jz-rowin{animation:jzProfitIn .55s cubic-bezier(.2,.9,.3,1.35) both;}
+@keyframes jzProfitIn{from{opacity:0; transform:translateY(10px) scale(.92)}
+  60%{transform:scale(1.04)}to{opacity:1; transform:none}}
+
+/* フィルムグレイン（デジタルののっぺり感を消す・常時ごく薄く） */
+.jz-grain{
+  position:absolute; inset:0; z-index:23; pointer-events:none;
+  opacity:.055; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size:220px 220px;
+}
