@@ -298,18 +298,59 @@
 .jz-backchip:active{transform:scale(.95);}
 
 /* ---------- 会話バー（§77-78：下部・半透明・腰上・短文） ---------- */
+/* ADV形式の会話。立ち絵を小さく1体だけ出すと「アイコン付きテキスト」にしか見えないので、
+   画面全体を舞台として使い、下部にウィンドウ、その上に出演者を左右で立たせる。 */
 .jz-dlg{
-  position:absolute; left:10px; right:10px;
-  bottom:calc(12px + env(safe-area-inset-bottom));
-  display:flex; gap:12px; align-items:flex-end; z-index:45;
+  position:absolute; inset:0; z-index:45;
   animation:jzFadeUp .35s ease both;
 }
-.jz-dlg .who{flex:0 0 auto; width:112px; filter:drop-shadow(0 12px 18px rgba(0,0,0,.4));}
+/* 会話中は背景を沈める。ホーム画面のボタンが透けて見えていると、
+   いまどこを触ればいいのか分からなくなる。下ほど濃くして立ち絵を浮かせる。 */
+.jz-dlg::before{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(180deg, rgba(6,18,12,.16) 0%, rgba(6,18,12,.48) 56%, rgba(6,18,12,.8) 100%);
+}
+/* 立ち絵の舞台。ウィンドウのぶんだけ上に置き、足元はウィンドウに潜らせる
+   （下端が宙で終わると、切り抜きを貼ったように見える）。 */
+.jz-dlg .cast{
+  position:absolute; left:0; right:0;
+  bottom:calc(96px + env(safe-area-inset-bottom));
+  height:min(46vh, 330px); pointer-events:none;
+}
+.jz-actor{
+  position:absolute; bottom:-18px; height:100%;
+  transition:filter .28s ease, transform .28s cubic-bezier(.2,.9,.3,1.2), opacity .28s;
+  filter:drop-shadow(2px 10px 14px rgba(0,0,0,.42));
+}
+.jz-actor img{height:100%; width:auto; display:block;}
+/* 背丈を素材の縦横比まかせにすると、小柄なフクロウが人間より大きくなる。
+   舞台上の背丈はキャラごとに決める（絵の比率ではなく、設定の身長に合わせる）。 */
+.jz-actor[data-who="owl"]    {height:72%;}
+.jz-actor[data-who="tourist"]{height:100%;}
+.jz-actor[data-who="player"] {height:94%;}
+.jz-actor.a-left {left:-1%;  transform-origin:bottom left;}
+.jz-actor.a-right{right:-1%; transform-origin:bottom right;}
+/* 話している側だけを前に出す。黙っている側は暗く・小さくして視線を奪わない。
+   誰の発言かを色ではなく明るさと大きさで示す＝視線誘導の基本。 */
+.jz-actor.on { transform:scale(1); opacity:1; }
+.jz-actor.off{
+  transform:scale(.94) translateY(8px); opacity:.94;
+  filter:brightness(.5) saturate(.68) drop-shadow(2px 8px 10px rgba(0,0,0,.34));
+}
+@media (prefers-reduced-motion: reduce){ .jz-actor{transition:none;} }
+/* 会話中は下部の操作UIを引っ込める。会話と操作が同時に見えていると、
+   いまどちらを触ればいいのか分からない。会話が終われば戻る。 */
+.jz-stage:has(.jz-dlg) .jz-nav,
+.jz-stage:has(.jz-dlg) .jz-hint{
+  opacity:0; pointer-events:none; transition:opacity .25s ease;
+}
 .jz-dlg .box{
-  flex:1; min-height:96px; cursor:pointer;
+  position:absolute; left:10px; right:10px;
+  bottom:calc(12px + env(safe-area-inset-bottom));
+  min-height:96px; cursor:pointer;
   background:rgba(7,24,16,.76); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
   border:1px solid rgba(255,246,224,.16); border-radius:20px;
-  padding:14px 18px 12px; position:relative;
+  padding:14px 18px 12px;
   box-shadow:0 18px 40px rgba(0,0,0,.4);
 }
 .jz-dlg .name{

@@ -729,29 +729,66 @@ function bumpCash(){
   c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump");
 }
 
-/* ---- 会話（§77-78: 下部・半透明・腰上・1回2〜3文・タップ送り） ---- */
+/* ---- 会話（ADV形式：左右に立ち絵／下部にウィンドウ／話者だけを明るく） ----
+   立ち絵を小さく1体だけ出すと「アイコン付きのテキスト」にしか見えない。
+   会話に出る全員を最初から左右に置き、話している側だけを前に出す。
+   ——誰が喋っているかを、色ではなく「明るさと大きさ」で示すのが基本（視線誘導）。 */
+
+/* 会話用の立ち絵。svgOwl() 等は幅100%固定で返ってくるため、
+   高さを揃えたいADVでは使わず、画像を直接組む（無い時だけSVGに落とす）。 */
+function actorArt(who, mood, v){
+  const key = who === "owl"
+        ? "char/owl_" + (mood==="happy" ? "happy" : (mood==="worried"||mood==="surprise") ? "worried" : "neutral")
+    : who === "tourist" ? "char/tourist_" + (((v||0)%2===1) ? "b" : "a")
+    : who === "player"  ? "char/player_" + (mood==="celebrate" ? "celebrate" : "front")
+    : null;
+  if(key && AssetReg.has(key)) return `<img src="${AssetReg.url(key)}" alt="">`;
+  return who === "owl" ? svgOwl(mood) : who === "tourist" ? svgTourist(v||0, mood) : "";
+}
+
+function actorName(who, name){
+  return name || (who === "owl" ? "OWL" : who === "tourist" ? "観光客" : who === "player" ? "あなた" : "");
+}
+
 function dialogue(lines, done){
   const st = $s("#jzStage"); if(!st){ done && done(); return; }
+
+  // 出演者を「出てきた順」に最大2人まで拾い、先に出たほうを左に置く。
+  const cast = [];
+  lines.forEach(L=>{ if(L.who && cast.indexOf(L.who) < 0 && cast.length < 2) cast.push(L.who); });
+
   const wrap = document.createElement("div");
   wrap.className = "jz-dlg";
   wrap.innerHTML = `
-    <div class="who"></div>
+    <div class="cast">
+      ${cast.map((w,idx)=>`<div class="jz-actor ${idx===0?"a-left":"a-right"}" data-who="${w}"></div>`).join("")}
+    </div>
     <div class="box"><div class="name"></div><div class="txt"></div><div class="tap">▼ タップ</div></div>`;
   st.appendChild(wrap);
-  const whoEl = wrap.querySelector(".who"), nameEl = wrap.querySelector(".name"), txtEl = wrap.querySelector(".txt");
+
+  const nameEl = wrap.querySelector(".name"), txtEl = wrap.querySelector(".txt");
+  const actors = [...wrap.querySelectorAll(".jz-actor")];
   let i = 0, timer = null, typing = false;
+
   function show(){
     const L = lines[i];
-    whoEl.innerHTML = L.who === "owl" ? svgOwl(L.mood)
-                    : L.who === "tourist" ? svgTourist(L.v||0, L.mood) : "";
-    nameEl.textContent = L.name || (L.who === "owl" ? "OWL" : L.who === "tourist" ? "観光客" : "");
+    actors.forEach(a=>{
+      const isSpeaker = a.dataset.who === L.who;
+      // 話者だけ表情を更新する。黙っている側の顔を変えると、誰の発言か読めなくなる。
+      if(isSpeaker || !a.innerHTML) a.innerHTML = actorArt(a.dataset.who, isSpeaker ? L.mood : "normal", L.v);
+      a.classList.toggle("on", isSpeaker);
+      a.classList.toggle("off", !isSpeaker);
+    });
+    nameEl.textContent = actorName(L.who, L.name);
     txtEl.textContent = ""; typing = true; let c = 0;
     timer = setInterval(()=>{
       c++; txtEl.textContent = L.text.slice(0, c);
       if(c >= L.text.length){ clearInterval(timer); typing = false; }
     }, 17);
   }
-  wrap.querySelector(".box").onclick = ()=>{
+  /* 送りは画面のどこを触ってもよい。会話中は背景を操作させないので、
+     小さなウィンドウを狙わせる理由がない（狭い的を押させるのは事故のもと）。 */
+  wrap.onclick = ()=>{
     B.Sound.click();
     if(typing){ clearInterval(timer); txtEl.textContent = lines[i].text; typing = false; return; }
     i++;
