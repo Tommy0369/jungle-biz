@@ -919,7 +919,9 @@ function sceneIntro(){
     const a = $s("#jzActors"); if(!a) return;
     a.innerHTML = `
       <div class="jz-popin" style="position:absolute;left:57%;bottom:17.5%;width:72px;z-index:16">${svgPlayerBack()}</div>
-      <div class="jz-popin" style="position:absolute;left:50%;top:20%;transform:translateX(-50%);z-index:24">
+      <!-- 中央揃えに transform を使わない。jz-popin のアニメは transform:none で終わるため、
+           translateX(-50%) は再生後に消えて左へずれる。left/right + flex なら影響を受けない。 -->
+      <div class="jz-popin" style="position:absolute;left:0;right:0;top:20%;z-index:24;display:flex;justify-content:center">
         <div class="jz-chip" style="text-align:center">
           <div style="font-size:11px;letter-spacing:.2em;opacity:.65">所持金</div>
           <div id="jzIntroCash" style="font-size:26px;font-weight:900;color:var(--jzGold);font-variant-numeric:tabular-nums">¥0</div>
@@ -1147,7 +1149,7 @@ function walkersHtml(s){
          style="bottom:${bt.toFixed(1)}%;width:${rnd(56,72)|0}px;
                 animation-duration:${rnd(16,30).toFixed(1)}s;animation-delay:${rnd(-20,0).toFixed(1)}s;z-index:${groundZ(bt)}">
       ${happy && i%2===0 ? `<div class="jz-heart">♥</div>` : ``}
-      <div class="b" style="${rev?'transform:scaleX(-1);':''}">${svgTourist(i%3)}</div>
+      <div class="b">${svgTourist(i%3)}</div>
     </div>`;
   }
   return h;

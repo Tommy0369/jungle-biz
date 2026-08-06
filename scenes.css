@@ -554,7 +554,11 @@
 .jz-walker{position:absolute; bottom:17%; z-index:18; pointer-events:none;
   animation-name:jzWalkX; animation-timing-function:linear; animation-iteration-count:infinite;}
 .jz-walker .b{animation:jzWalkBob .6s ease-in-out infinite; transform-origin:bottom center;}
-.jz-walker.rev{animation-name:jzWalkXRev;}
+/* 左へ歩く人は体も左へ向ける。素材は右向き（地図を右手に持ち、視線も右）なので反転させる。
+   ——反転を子の .b に inline で書くと、歩行の上下動アニメ(jzWalkBob)が同じ transform を
+   毎フレーム上書きしてしまい、反転が消える。だから親側でかける。
+   親の transform は left のアニメーションとは競合しない。 */
+.jz-walker.rev{animation-name:jzWalkXRev; transform:scaleX(-1);}
 
 /* ---------- 奥行き・空気 ---------- */
 .jz-vig{
