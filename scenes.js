@@ -571,6 +571,21 @@ function par(d, html){
   return `<div class="jz-par" data-d="${d}">${html}</div>`;
 }
 
+/* 地面に立つものの前後関係（§2.5D）。
+   奥行きは「画面の下にあるものほど手前」で決まる。これを守らないと、
+   手前を歩いている客が、奥にある屋台の後ろへ回り込んで消える。
+   ——実際そうなっていた（客 bottom14〜19% / z13 に対し、屋台 bottom26% / z15）。
+   z を各所に直書きすると必ずまた壊れるので、bottom% から機械的に出す。
+
+     bottom 26%（屋台の位置）＝ 最も奥  → z 15
+     bottom 13%（画面のかなり下）＝ 最も手前 → z 21
+   ビネット(22)・グレイン(23)より上には行かせない。 */
+const GZ = { farPct:26, nearPct:13, zFar:15, zNear:21 };
+function groundZ(bottomPct){
+  const t = (GZ.farPct - bottomPct) / (GZ.farPct - GZ.nearPct);
+  return Math.round(GZ.zFar + Math.max(0, Math.min(1, t)) * (GZ.zNear - GZ.zFar));
+}
+
 /* 吹き出しは客の立ち位置から出す。ただし客が画面端にいると枠外へ飛び出し、
    幅が潰れて文字が縦1列になる（375px幅で実測22pxはみ出していた）。
    左右とも画面内に収める。上限は CSS の max-width と揃える。 */
@@ -1126,10 +1141,11 @@ function walkersHtml(s){
   let h="";
   for(let i=0;i<n;i++){
     const rev = Math.random()<0.5;
+    const bt = rnd(14,19);          // 立ち位置。奥行きも前後関係も、この1つの値から決める
     h += `
     <div class="jz-walker ${rev?'rev':''}"
-         style="bottom:${rnd(14,19).toFixed(1)}%;width:${rnd(56,72)|0}px;
-                animation-duration:${rnd(16,30).toFixed(1)}s;animation-delay:${rnd(-20,0).toFixed(1)}s;z-index:13">
+         style="bottom:${bt.toFixed(1)}%;width:${rnd(56,72)|0}px;
+                animation-duration:${rnd(16,30).toFixed(1)}s;animation-delay:${rnd(-20,0).toFixed(1)}s;z-index:${groundZ(bt)}">
       ${happy && i%2===0 ? `<div class="jz-heart">♥</div>` : ``}
       <div class="b" style="${rev?'transform:scaleX(-1);':''}">${svgTourist(i%3)}</div>
     </div>`;

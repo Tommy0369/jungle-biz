@@ -549,7 +549,9 @@
 .t-night .jz-lantern,.t-predawn .jz-lantern,.t-dusk .jz-lantern{opacity:1;}
 
 /* 歩く観光客（§5 世界が動いている） */
-.jz-walker{position:absolute; bottom:17%; z-index:14; pointer-events:none;
+/* 客は屋台(z15)より画面の下＝手前を歩く。ここを屋台より小さくすると、
+   歩いてきた客が屋台の裏へ回り込んで消える。実際の値は groundZ() が bottom から出す。 */
+.jz-walker{position:absolute; bottom:17%; z-index:18; pointer-events:none;
   animation-name:jzWalkX; animation-timing-function:linear; animation-iteration-count:infinite;}
 .jz-walker .b{animation:jzWalkBob .6s ease-in-out infinite; transform-origin:bottom center;}
 .jz-walker.rev{animation-name:jzWalkXRev;}
