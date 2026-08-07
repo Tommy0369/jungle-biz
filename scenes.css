@@ -494,7 +494,9 @@
    小さく下に寄せると上半分が空いて、書き割りのように見える（§没入感）。 */
 .jz-stall{
   position:absolute; left:50%; bottom:26%; transform:translateX(-50%);
-  width:min(560px, 96vw, 72vh); z-index:15;
+  /* 上限560pxだと、フルHD級の画面では店が画面の1/4しか占めず「広場に置いた模型」になる。
+     主役は画面高に追従させる（72vhが効く）。小さい画面の実寸は従来どおり。 */
+  width:min(760px, 96vw, 72vh); z-index:15;
   transition:filter 1.8s, width .6s cubic-bezier(.2,.9,.3,1.2), bottom .6s ease;
 }
 /* 素材の上端で建物が断ち切られているものがある（屋根が画像の外に出ている）。
@@ -652,6 +654,40 @@
   .jz-dlg{left:50%; right:auto; transform:translateX(-50%); width:min(760px, 92vw);}
   .jz-dlg .who{width:136px;}
   .jz-dlg .txt{font-size:17px;}
+}
+
+/* 舞台に立つ人・物の大きさの係数。
+   広い画面ほど「カメラを寄せた」ように大きく見せる。
+   ——固定pxのままだと、PCの広い画面で人が豆粒になり、店だけが浮いた広大な空き地に見える。
+   高さ(vh)で測ってはいけない：iPhone 812px と PC 800px はほぼ同じで、まったく効かない。
+   広さの差は「横幅」に出る（375 → 1280 → 1920）。 */
+:root{ --actor: 1; }
+@media (min-width:1024px){ :root{ --actor: 1.5; } }
+@media (min-width:1600px){ :root{ --actor: 1.9; } }
+
+/* 人物の接地影。店には付けたが人には無く、地面から浮いて紙人形に見えていた。
+   影色は純黒でなく地面の環境色を混ぜた暖い茶（VISUAL_ART：影に環境色）。 */
+.jz-walker::after, .jz-breath::after, #jzGuest::after{
+  content:""; position:absolute; left:50%; bottom:1%;
+  width:62%; height:8%; transform:translateX(-50%); z-index:-1;
+  background:radial-gradient(ellipse at center, rgba(38,26,10,.42), rgba(38,26,10,0) 66%);
+  filter:blur(3px); pointer-events:none;
+}
+
+/* ---------- PC（§Adaptive: 縮小モバイルUIを引き伸ばさず、束ねて拡大する） ----------
+   問題はワイド画面で2つ起きる：
+   ① HUDチップが四隅へ飛び、視線が画面端を往復する（Fitts/視線移動）
+   ② 文字とボタンがモバイル実寸のままで、相対的に豆粒になる
+   HUDは中央1360pxに束ね、チップ・ナビは一段大きくする。舞台側は vh 追従で別対応。 */
+@media (min-width:1024px){
+  .jz-hud{left:0; right:0; margin-inline:auto; max-width:1360px; padding-inline:4px;}
+  .jz-chip{font-size:14px; padding:10px 17px; border-radius:18px;}
+  .jz-hud-sub .jz-chip{font-size:12px;}
+  .jz-nav{gap:10px; padding:10px; border-radius:26px;}
+  .jz-nav .tab{font-size:12px; min-width:66px; min-height:58px;}
+  .jz-nav .tab .ic{font-size:22px;}
+  .jz-nav .cta{font-size:16.5px; padding:0 26px; min-height:58px;}
+  .jz-hint .jz-chip{font-size:14px;}
 }
 
 /* ---------- §83 店主の名前入力 ---------- */

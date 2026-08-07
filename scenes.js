@@ -1062,12 +1062,12 @@ function sceneFirstSale(){
   const st = stage("t-day", `
     ${skyBits({ shore:true, bgKey:"bg/beach_day", glint:["45%","19%"] })}
     ${hudHtml(s)}
-    <div class="jz-stall" style="left:38%;width:min(360px,74vw)">${svgStall(s.bizId, 1)}</div>
-    <div id="jzHero" class="jz-breath" style="position:absolute;left:17%;bottom:18.5%;width:76px;z-index:17">${svgPlayerFront("normal")}</div>
+    <div class="jz-stall" style="left:38%;width:min(74vw, 56vh, 640px)">${svgStall(s.bizId, 1)}</div>
+    <div id="jzHero" class="jz-breath" style="position:absolute;left:17%;bottom:18.5%;width:calc(76px * var(--actor));z-index:17">${svgPlayerFront("normal")}</div>
     <!-- この客は画面の右端(108%)から左(66%)へ歩いてくる。素材は右向きなので反転させる。
          反転は「歩行アニメを持たない親」にかける（子の .b は transform を animate しており、
          そこに inline で書くと毎フレーム打ち消される）。親は transition:left だけなので競合しない。 -->
-    <div id="jzGuest" style="position:absolute;left:108%;bottom:19%;width:86px;z-index:18;transform:scaleX(-1);transition:left 2.3s cubic-bezier(.4,.1,.3,1)">
+    <div id="jzGuest" style="position:absolute;left:108%;bottom:19%;width:calc(86px * var(--actor));z-index:18;transform:scaleX(-1);transition:left 2.3s cubic-bezier(.4,.1,.3,1)">
       <div class="b" style="animation:jzWalkBob .58s ease-in-out infinite;transform-origin:bottom center">${svgTourist(0)}</div>
     </div>
     <div id="jzAsk"></div>
@@ -1147,10 +1147,16 @@ function walkersHtml(s){
   for(let i=0;i<n;i++){
     const rev = Math.random()<0.5;
     const bt = rnd(14,19);          // 立ち位置。奥行きも前後関係も、この1つの値から決める
+    /* 幅は固定pxにしない。PCの大画面では人が豆粒になり、広大な空き地に見える（§Adaptive）。
+       812px高（iPhone）でちょうど従来の実寸になる vh 係数で、画面の高さに追従させる。 */
+    const w = rnd(56,72)|0;
+    const dur = rnd(16,30);
+    /* delayは乱数だけだと客が同じ場所に固まる（団子）。i/n で経路上へ等間隔に散らす。 */
+    const dly = (-(i + rnd(0,0.6)) * dur / Math.max(1,n)).toFixed(1);
     h += `
     <div class="jz-walker ${rev?'rev':''}"
-         style="bottom:${bt.toFixed(1)}%;width:${rnd(56,72)|0}px;
-                animation-duration:${rnd(16,30).toFixed(1)}s;animation-delay:${rnd(-20,0).toFixed(1)}s;z-index:${groundZ(bt)}">
+         style="bottom:${bt.toFixed(1)}%;width:calc(${w}px * var(--actor));
+                animation-duration:${dur.toFixed(1)}s;animation-delay:${dly}s;z-index:${groundZ(bt)}">
       ${happy && i%2===0 ? `<div class="jz-heart">♥</div>` : ``}
       <div class="b">${svgTourist(i%3)}</div>
     </div>`;
@@ -1166,7 +1172,8 @@ function staffOnSite(s){
     const left = 118 + 46 + i*34;          // プレイヤーの隣から並ぶ
     const d = (i*0.7).toFixed(1);
     h += `<div class="jz-breath" style="position:absolute;left:calc(50% + ${left}px);bottom:20.5%;
-            width:${46-i*3}px;z-index:${15-i};animation-delay:${d}s;opacity:.95">
+            width:calc(${46-i*3}px * var(--actor));
+            z-index:${15-i};animation-delay:${d}s;opacity:.95">
             ${svgTourist(i%2===0?"a":"b")}</div>`;
   }
   return h;
@@ -1191,7 +1198,7 @@ function sceneLive(){
                 bgRaw: advanced && AssetReg.has("bg/jungle_night") })}
     <div class="jz-stall" id="jzStall">${svgStall(s.bizId, lvl, { staff:(s.staff||[]).length, stage:shopStage(s) })}</div>
     ${staffOnSite(s)}
-    <div class="jz-breath" style="position:absolute;left:calc(50% + 118px);bottom:20.5%;width:62px;z-index:16">${svgPlayerFront("normal")}</div>
+    <div class="jz-breath" style="position:absolute;left:calc(50% + 118px);bottom:20.5%;width:calc(62px * var(--actor));z-index:16">${svgPlayerFront("normal")}</div>
     <div class="jz-lantern" style="left:calc(50% + 78px);bottom:44%"></div>
     ${walkersHtml(s)}
     <div class="jz-bird" style="top:${rnd(12,20)|0}%;animation-duration:${rnd(17,26)|0}s">${svgBird()}</div>
