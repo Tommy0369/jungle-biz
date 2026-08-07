@@ -1064,7 +1064,10 @@ function sceneFirstSale(){
     ${hudHtml(s)}
     <div class="jz-stall" style="left:38%;width:min(360px,74vw)">${svgStall(s.bizId, 1)}</div>
     <div id="jzHero" class="jz-breath" style="position:absolute;left:17%;bottom:18.5%;width:76px;z-index:17">${svgPlayerFront("normal")}</div>
-    <div id="jzGuest" style="position:absolute;left:108%;bottom:19%;width:86px;z-index:18;transition:left 2.3s cubic-bezier(.4,.1,.3,1)">
+    <!-- この客は画面の右端(108%)から左(66%)へ歩いてくる。素材は右向きなので反転させる。
+         反転は「歩行アニメを持たない親」にかける（子の .b は transform を animate しており、
+         そこに inline で書くと毎フレーム打ち消される）。親は transition:left だけなので競合しない。 -->
+    <div id="jzGuest" style="position:absolute;left:108%;bottom:19%;width:86px;z-index:18;transform:scaleX(-1);transition:left 2.3s cubic-bezier(.4,.1,.3,1)">
       <div class="b" style="animation:jzWalkBob .58s ease-in-out infinite;transform-origin:bottom center">${svgTourist(0)}</div>
     </div>
     <div id="jzAsk"></div>
