@@ -665,6 +665,15 @@
 @media (min-width:1024px){ :root{ --actor: 1.5; } }
 @media (min-width:1600px){ :root{ --actor: 1.9; } }
 
+/* 縦構図の背景は、横構図に比べて地面の帯が狭い（画面下 15% 前後）。
+   舞台の立ち位置を横構図のまま（店 bottom26%）にすると、店が茂みに埋もれる。
+   縦画面のときだけ、店と人をまとめて地面へ寄せる。 */
+@media (max-aspect-ratio: 3/4){
+  .jz-stall{ bottom:19%; }
+  .jz-walker{ margin-bottom:-6%; }
+  .jz-breath, #jzHero, #jzGuest{ margin-bottom:-5%; }
+}
+
 /* 人物の接地影。店には付けたが人には無く、地面から浮いて紙人形に見えていた。
    影色は純黒でなく地面の環境色を混ぜた暖い茶（VISUAL_ART：影に環境色）。 */
 .jz-walker::after, .jz-breath::after, #jzGuest::after{

@@ -23,6 +23,8 @@ const $s  = (sel)=> document.querySelector(sel);
    ======================================================================= */
 const AssetReg = {
   manifest: ["bg/title_bg","bg/beach_dawn","bg/beach_day","bg/jungle_day","bg/jungle_dawn","bg/jungle_night",
+             // 縦構図版（_v）。縦長画面ではこちらを優先する（bgKeyFor）
+             "bg/jungle_day_v",
              "fg/palm","fg/fern",
              // キャラ（透過PNG。assets/raw/ に元画像→ tools/cutout.py で生成）
              "char/owl_neutral","char/owl_happy","char/owl_worried",
@@ -632,9 +634,21 @@ function fliesHtml(n){
    opts: {island, boat, shore, ground, canopy, palms, flies, bgKey, bgRaw}
    bgKey の画像が assets/ にあれば画像背景に切り替え、SVG地形は省略。
    その場合も「動く光・前景・生き物」は画像の上に重ねる（一枚絵ゲーム禁止 §3）。 */
+/* 縦長の画面では縦構図の背景（_v）に差し替える。
+   横長画像を cover で縦画面に入れると、画像中央の狭い縦帯しか映らず、
+   左右に描かれた見どころが丸ごと切り落とされる（実測: 1672x941 を 375x812 に入れると
+   横1443px相当のうち中央375pxだけが見える）。縦構図の素材があるならそれを使う。 */
+function bgKeyFor(key){
+  if(!key) return key;
+  const portrait = (window.innerHeight || 0) > (window.innerWidth || 1);
+  const vk = key + "_v";
+  return (portrait && AssetReg.has(vk)) ? vk : key;
+}
+
 function skyBits(opts){
   opts = opts || {};
-  const bgKey = (opts.bgKey && AssetReg.has(opts.bgKey)) ? opts.bgKey : null;
+  const wantKey = bgKeyFor(opts.bgKey);
+  const bgKey = (wantKey && AssetReg.has(wantKey)) ? wantKey : null;
   let h = `<div class="jz-sky"></div>`;
 
   if(bgKey){
