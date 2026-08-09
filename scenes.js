@@ -694,7 +694,9 @@ function skyBits(opts){
   if(opts.boat){
     const bt = opts.boat;
     // ボートはJSでleftを動かすため par で包まない
-    h += `<div class="jz-boat" id="${bt.id||''}" style="left:${bt.left};bottom:${bt.bottom};width:150px;transform:scale(${bt.scale||1})">${svgBoat()}</div>`;
+    /* left は着岸位置に固定し、動かすのは transform だけにする（GPU合成に乗せる）。
+       from は開始位置のオフセット（画面外）。 */
+    h += `<div class="jz-boat" id="${bt.id||''}" style="left:${bt.left};bottom:${bt.bottom};width:150px;transform:translateX(${bt.from||"0"}) scale(${bt.scale||1})">${svgBoat()}</div>`;
   }
   if(opts.canopy && !bgKey) h += par(0.12, `<div class="jz-canopy">${svgCanopy()}</div>`);
   // 画像背景には前景植物が焼き込まれがち。二重描画を避けるため、
@@ -921,28 +923,45 @@ function sceneTitle(){
 function sceneIntro(){
   introTimers.forEach(clearTimeout); introTimers = [];
   const st = stage("t-predawn", `
-    ${skyBits({ boat:{ id:"jzBoat", left:"-18%", bottom:"25%", scale:1 }, shore:true, flies:5, bgKey:"bg/beach_dawn", glint:["46%","17%"] })}
+    ${skyBits({ boat:{ id:"jzBoat", left:"38%", bottom:"25%", scale:.94, from:"-190%" }, shore:true, flies:5, bgKey:"bg/beach_dawn", glint:["46%","17%"] })}
     <button class="jz-skip" id="jzSkip">スキップ ▶▶</button>
     <div id="jzActors"></div>
   `);
   const T = (ms,fn)=> introTimers.push(setTimeout(fn, ms));
 
   T(600, ()=>{ st.classList.remove("t-predawn"); st.classList.add("t-dawn"); });          // 夜明け（§33）
-  T(900, ()=>{ const b=$s("#jzBoat"); if(b){ b.style.left="40%"; b.style.transform="scale(.78)"; } }); // ボート接近
-  T(3400, ()=>{                                                                            // 上陸（§34）
+  /* ボートが波に押されて滑り込む。動かすのは transform だけ（CSS側で 3.4s の強い ease-out）。 */
+  T(900, ()=>{ const b=$s("#jzBoat"); if(b){ b.style.transform="translateX(0) scale(1)"; } });
+  T(3600, ()=>{                                                                            // 上陸（§34）
     const a = $s("#jzActors"); if(!a) return;
+    /* 主人公は「ポップイン」させない。降り立って歩き出す動きにする。
+       出現そのものを演出にすると唐突さが消え、上陸したという事実が伝わる。 */
     a.innerHTML = `
-      <div class="jz-popin" style="position:absolute;left:57%;bottom:17.5%;width:72px;z-index:16">${svgPlayerBack()}</div>
-      <!-- 中央揃えに transform を使わない。jz-popin のアニメは transform:none で終わるため、
-           translateX(-50%) は再生後に消えて左へずれる。left/right + flex なら影響を受けない。 -->
-      <div class="jz-popin" style="position:absolute;left:0;right:0;top:20%;z-index:24;display:flex;justify-content:center">
+      <div id="jzLander" style="position:absolute;left:44%;bottom:16.5%;width:calc(72px * var(--actor));z-index:16;
+           opacity:0;transform:translate(-26px,6px);
+           transition:transform 1.5s cubic-bezier(.22,.72,.3,1), opacity .55s ease">${svgPlayerBack()}</div>
+      <div id="jzIntroCard" style="position:absolute;left:0;right:0;top:20%;z-index:24;display:flex;justify-content:center;
+           opacity:0;transition:opacity .6s ease">
         <div class="jz-chip" style="text-align:center">
           <div style="font-size:11px;letter-spacing:.2em;opacity:.65">所持金</div>
           <div id="jzIntroCash" style="font-size:26px;font-weight:900;color:var(--jzGold);font-variant-numeric:tabular-nums">¥0</div>
           <div style="font-size:11px;opacity:.75;margin-top:3px">🎒 荷物：小さなバッグひとつ</div>
         </div>
       </div>`;
-    const el = $s("#jzIntroCash");
+    /* 出現させてから動かす。同じフレームで初期値と終了値を書くとブラウザが差分を
+       認識せず transition が走らない。rAF 1回では挿入と同じフレームに入ることがあるため、
+       2重にして「確実に次のフレーム」で変更する。 */
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const p = $s("#jzLander");
+      if(p){ p.style.opacity="1"; p.style.transform="translate(0,0)"; }
+    }));
+  });
+  /* 情報は歩き終わってから出す。上陸と所持金を同時に見せると、
+     どちらも印象に残らない（同時に強い要素を2つ置かない）。 */
+  T(4900, ()=>{
+    const card = $s("#jzIntroCard"); if(!card) return;
+    card.style.opacity = "1";
+    const el = $s("#jzIntroCash"); if(!el) return;
     const t0 = performance.now(), goal = (B.CONFIG && B.CONFIG.startCash) || 100000;
     (function cnt(now){
       const t = Math.min(1,(now-t0)/900);
@@ -950,7 +969,7 @@ function sceneIntro(){
       if(t<1 && document.body.contains(el)) requestAnimationFrame(cnt);
     })(t0);
   });
-  T(4700, ()=>{                                                                            // OWL登場（§35）
+  T(6100, ()=>{                                                                            // OWL登場（§35）
     dialogue([
       { who:"owl", text:"ようこそ、ジャングルへ。" },
       { who:"owl", text:"先に言っておこう。ここでは、誰も君に給料をくれない。" },

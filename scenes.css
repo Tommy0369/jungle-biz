@@ -117,7 +117,12 @@
 
 /* ---------- ボート ---------- */
 .jz-boat{position:absolute; pointer-events:none; animation:jzBob 3.4s ease-in-out infinite;
-  transition:transform 3.2s cubic-bezier(.35,.1,.25,1), left 3.2s cubic-bezier(.35,.1,.25,1);}
+  /* 位置は left ではなく transform で動かす。left はレイアウトを毎フレーム再計算させ
+     GPU合成に乗らないため、長い移動でカクつく（アニメートしてよいのは transform と opacity）。
+     イージングは「波に押されて滑り込み、砂で止まる」——強い ease-out で慣性を出す。
+     旧: cubic-bezier(.35,.1,.25,1) は ease-in-out 寄りで、着岸の減速が感じられなかった。 */
+  transition:transform 3.4s cubic-bezier(.12,.78,.26,1);
+  will-change:transform;}
 
 /* ---------- ロゴ（§67 冒険感のあるDisplay。書体でなく組みで作る） ---------- */
 .jz-title-center{
