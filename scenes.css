@@ -376,6 +376,17 @@
   display:flex; justify-content:center; z-index:28; pointer-events:none;
   animation:jzFadeUp .5s ease both;
 }
+/* ヒントは人物や明るい地面の上に重なる。既定の 62% 背景では絵が透けて文字が読めない。
+   ——「次に何をするか」が読めないヒントは、無いのと同じ。
+   文字も 13px は GAME_UI_UX の下限（15px）割れだったので上げる。 */
+.jz-hint .jz-chip{
+  background:rgba(8,26,18,.88);
+  backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+  border-color:rgba(255,246,224,.26);
+  font-size:15px; line-height:1.55;
+  max-width:min(94vw, 620px);
+  box-shadow:0 10px 26px rgba(0,0,0,.42);
+}
 .jz-plot{
   position:absolute; left:50%; bottom:33%; transform:translateX(-50%);
   width:min(430px, 88vw, 60vh); z-index:14; pointer-events:none;
@@ -696,7 +707,7 @@
   .jz-nav .tab{font-size:12px; min-width:66px; min-height:58px;}
   .jz-nav .tab .ic{font-size:22px;}
   .jz-nav .cta{font-size:16.5px; padding:0 26px; min-height:58px;}
-  .jz-hint .jz-chip{font-size:14px;}
+  .jz-hint .jz-chip{font-size:16.5px;}
 }
 
 /* ---------- §83 店主の名前入力 ---------- */
