@@ -307,8 +307,10 @@
 /* 会話中は背景を沈める。ホーム画面のボタンが透けて見えていると、
    いまどこを触ればいいのか分からなくなる。下ほど濃くして立ち絵を浮かせる。 */
 .jz-dlg::before{
-  content:""; position:absolute; inset:0;
+  content:""; position:fixed; inset:0;
   background:linear-gradient(180deg, rgba(6,18,12,.16) 0%, rgba(6,18,12,.48) 56%, rgba(6,18,12,.8) 100%);
+  /* 暗幕は必ず画面全体。PCでは .jz-dlg が中央760pxに絞られるため、
+     absolute（親基準）だと左右が明るいまま残り、画面が縦に割れて見える。 */
 }
 /* 立ち絵の舞台。ウィンドウのぶんだけ上に置き、足元はウィンドウに潜らせる
    （下端が宙で終わると、切り抜きを貼ったように見える）。 */
@@ -662,8 +664,10 @@
 
 /* ---------- §33 デスクトップで会話を読みやすく ---------- */
 @media (min-width:760px){
-  .jz-dlg{left:50%; right:auto; transform:translateX(-50%); width:min(760px, 92vw);}
-  .jz-dlg .who{width:136px;}
+  /* 中央寄せに transform を使わない。.jz-dlg は jzFadeUp（to{transform:none}）で
+     登場するため、translateX(-50%) は再生後に消える。
+     結果、会話レイヤーが画面の右半分だけを覆い、暗幕で画面が左右に割れて見えていた。 */
+  .jz-dlg{left:0; right:0; margin-inline:auto; width:min(760px, 92vw);}
   .jz-dlg .txt{font-size:17px;}
 }
 
