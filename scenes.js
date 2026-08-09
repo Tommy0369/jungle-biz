@@ -24,7 +24,7 @@ const $s  = (sel)=> document.querySelector(sel);
 const AssetReg = {
   manifest: ["bg/title_bg","bg/beach_dawn","bg/beach_day","bg/jungle_day","bg/jungle_dawn","bg/jungle_night",
              // 縦構図版（_v）。縦長画面ではこちらを優先する（bgKeyFor）
-             "bg/jungle_day_v",
+             "bg/jungle_day_v","bg/beach_day_v",
              "fg/palm","fg/fern",
              // キャラ（透過PNG。assets/raw/ に元画像→ tools/cutout.py で生成）
              "char/owl_neutral","char/owl_happy","char/owl_worried",
