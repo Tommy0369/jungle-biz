@@ -24,7 +24,7 @@ const $s  = (sel)=> document.querySelector(sel);
 const AssetReg = {
   manifest: ["bg/title_bg","bg/beach_dawn","bg/beach_day","bg/jungle_day","bg/jungle_dawn","bg/jungle_night",
              // 縦構図版（_v）。縦長画面ではこちらを優先する（bgKeyFor）
-             "bg/jungle_day_v","bg/beach_day_v",
+             "bg/jungle_day_v","bg/beach_day_v","bg/jungle_night_v",
              "fg/palm","fg/fern",
              // キャラ（透過PNG。assets/raw/ に元画像→ tools/cutout.py で生成）
              "char/owl_neutral","char/owl_happy","char/owl_worried",
@@ -1236,8 +1236,11 @@ function sceneLive(){
     </div>
   `);
   if(advanced){                                                        // 夜→朝（§7: 週の感情的区切り）
-    setTimeout(()=>{ st.classList.remove("t-night"); st.classList.add("t-dawn"); }, 1100);
-    setTimeout(()=>{ st.classList.remove("t-dawn");  st.classList.add("t-day");  }, 2800);
+    /* 夜 → 朝焼け → 朝。色の transition は 1.8s なので、朝焼けの滞在を
+       それより短くすると、朝焼けが完成する前に昼へ飛んで一瞬しか見えない
+       （旧: 1100→2800 の1.7秒滞在）。夜は短く、朝焼けは 2.0秒見せる。 */
+    setTimeout(()=>{ st.classList.remove("t-night"); st.classList.add("t-dawn"); }, 900);
+    setTimeout(()=>{ st.classList.remove("t-dawn");  st.classList.add("t-day");  }, 2900);
     // 夜画像→昼画像のクロスフェード（両方ある時だけ）
     if(AssetReg.has("bg/jungle_night") && AssetReg.has("bg/jungle_day")){
       setTimeout(()=>{

@@ -828,6 +828,13 @@
 /* 夜専用画像が無い時は昼画像をCSSで夜に落とす。raw=その時間帯の絵そのもの（触らない） */
 .t-night .jz-bgimg:not(.raw),
 .t-predawn .jz-bgimg:not(.raw){filter:brightness(.42) saturate(.72) hue-rotate(-10deg);}
+/* 夜明け。ここに指定が無いと、夜(0.42)から昼(none)へ一気に飛んで
+   「ただ明るくなるだけ」になり、夜が明けた感情が生まれない。
+   朝焼けの暖色を必ず経由させる：まだ暗いが、光が赤く差し始めている状態。 */
+.t-dawn .jz-bgimg:not(.raw){filter:brightness(.72) saturate(1.12) sepia(.16) hue-rotate(-12deg);}
+/* 夜専用に描かれた素材(.raw)は色をいじらない代わりに、夜明けだけ少し起こす */
+.t-dawn .jz-bgimg.raw{filter:brightness(1.15) saturate(1.05);}
+.t-day  .jz-bgimg{filter:none;}
 
 /* ---------- WEEK RESULT 段階演出（§22-23） ---------- */
 .jz-rowin{animation:jzRowIn .38s cubic-bezier(.2,.9,.3,1.2) both;}
