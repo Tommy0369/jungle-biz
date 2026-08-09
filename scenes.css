@@ -665,13 +665,13 @@
 @media (min-width:1024px){ :root{ --actor: 1.5; } }
 @media (min-width:1600px){ :root{ --actor: 1.9; } }
 
-/* 縦構図の背景は、横構図に比べて地面の帯が狭い（画面下 15% 前後）。
-   舞台の立ち位置を横構図のまま（店 bottom26%）にすると、店が茂みに埋もれる。
-   縦画面のときだけ、店と人をまとめて地面へ寄せる。 */
+/* 縦構図の背景は、地面の帯が画面下 29%（実測）。横構図より狭いので、
+   立ち位置をそのままにすると店が茂みの際に食い込む。縦画面のときだけ少し下げる。
+   ——素材を「地面40%」で作り直したぶん、下げ幅は最小で済んでいる（旧素材では15%しかなく大きく下げていた）。 */
 @media (max-aspect-ratio: 3/4){
-  .jz-stall{ bottom:19%; }
-  .jz-walker{ margin-bottom:-6%; }
-  .jz-breath, #jzHero, #jzGuest{ margin-bottom:-5%; }
+  .jz-stall{ bottom:23%; }
+  .jz-walker{ margin-bottom:-2%; }
+  .jz-breath, #jzHero, #jzGuest{ margin-bottom:-2%; }
 }
 
 /* 人物の接地影。店には付けたが人には無く、地面から浮いて紙人形に見えていた。
