@@ -1141,7 +1141,14 @@ function sceneFirstSale(){
           // 初売上：現金は本当に増やす。原価の話はまだしない（§38 伏線）
           s.cash += v; s.price = v; B.Engine.save();
           const hero = $s("#jzHero");                        // §18 主人公が喜ぶ
-          if(hero){ hero.innerHTML = svgPlayerFront("celebrate"); hero.classList.add("jz-jump"); }
+          /* ジャンプ後は必ずクラスを外す。jz-jump は fill-mode:both で
+             transform:none を保持し続けるため、付けっぱなしだと .jz-breath の
+             呼吸アニメを丸ごと置き換えたまま止まり、主人公が完全静止する（§30 違反）。 */
+          if(hero){
+            hero.innerHTML = svgPlayerFront("celebrate");
+            hero.classList.add("jz-jump");
+            hero.addEventListener("animationend", ()=>hero.classList.remove("jz-jump"), { once:true });
+          }
           coinFly(gr2.left + gr2.width/2, gr2.top + 40, v, ()=>{
             const st2 = $s("#jzStage");
             if(st2){                                          // §18 FIRST SALE! Achievement
