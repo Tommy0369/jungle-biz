@@ -234,8 +234,10 @@
 .jz-hud-row{display:flex; justify-content:space-between; align-items:flex-start;}
 /* 危機HUD（RUNWAY / マクロ事象）— 平常時は控えめ、危ないときだけ色で主張する */
 .jz-hud-sub{display:flex; gap:7px; flex-wrap:wrap;}
-.jz-hud-sub .jz-chip{padding:6px 11px; font-size:11px; line-height:1.25;}
-.jz-hud-sub .lbl{font-size:9px; letter-spacing:.16em; color:rgba(255,246,224,.6); font-weight:900;}
+/* RUNWAY と災害チップは「あと何週もつか」を伝える最重要の危機情報なのに、
+   ラベルが 9px・不透明度.6 で、画面内で最も読めない表示になっていた。 */
+.jz-hud-sub .jz-chip{padding:7px 12px; font-size:13px; line-height:1.25;}
+.jz-hud-sub .lbl{font-size:11px; letter-spacing:.14em; color:rgba(255,246,224,.85); font-weight:900;}
 .jz-hud-sub .val{font-size:14px; font-weight:900; font-variant-numeric:tabular-nums;}
 .jz-rw.ok .val, .jz-macro.ok .val{color:var(--jzCream);}
 .jz-rw.warn, .jz-macro.warn{border-color:rgba(245,184,0,.55); background:rgba(60,42,4,.66);}
@@ -253,7 +255,8 @@
   box-shadow:0 8px 20px rgba(0,0,0,.25);
 }
 .jz-cashchip{text-align:right;}
-.jz-cashchip .lbl{font-size:10px; letter-spacing:.22em; color:rgba(255,246,224,.62); font-weight:900;}
+/* 「CASH」ラベルが 10px・不透明度.62 で、半透明チップと二重に薄まり消えていた。 */
+.jz-cashchip .lbl{font-size:12px; letter-spacing:.2em; color:rgba(255,246,224,.85); font-weight:900;}
 .jz-cashchip .val{
   font-size:21px; font-weight:900; color:var(--jzGold);
   font-variant-numeric:tabular-nums; line-height:1.15;
@@ -707,6 +710,11 @@
    ——固定pxのままだと、PCの広い画面で人が豆粒になり、店だけが浮いた広大な空き地に見える。
    高さ(vh)で測ってはいけない：iPhone 812px と PC 800px はほぼ同じで、まったく効かない。
    広さの差は「横幅」に出る（375 → 1280 → 1920）。 */
+/* 下部ナビのおおよその高さ。ヒントなど「ナビの上に積む」要素はこれを基準にする。
+   固定pxで積むと、PC幅でナビが大きくなった時に重なる。 */
+:root{ --navH: 72px; }                              /* 実測 71px（スマホ） */
+@media (min-width:1024px){ :root{ --navH: 80px; } } /* 実測 80px（PC） */
+
 :root{ --actor: 1; }
 /* 700〜1023（iPad縦・分割表示）は 1024 の分岐に入らず、スマホと同じ大きさのまま
    取り残される「谷間」になる。実測: 768px幅で人物が 62px のままだった。 */
@@ -892,10 +900,17 @@
 @keyframes jzRowIn{from{opacity:0; transform:translateY(9px)}to{opacity:1; transform:none}}
 .jz-profitrow{font-size:17px; padding:10px 2px !important; border-radius:12px;}
 .jz-profitrow small{font-size:11px; opacity:.7; font-weight:800;}
-.jz-profitrow.good{background:linear-gradient(90deg, rgba(47,191,113,.12), rgba(47,191,113,.02));}
-.jz-profitrow.good b{color:var(--leaf-500, #2fbf71);}
-.jz-profitrow.bad{background:linear-gradient(90deg, rgba(255,90,95,.12), rgba(255,90,95,.02));}
-.jz-profitrow.bad b{color:var(--coral, #ff5a5f);}
+/* 利益と損失を「色だけ」で伝えていた。クリーム地(#fffdf5)に対し
+   #2fbf71 は約2.2:1、#ff5a5f は約3.0:1 で、いずれも本文基準 4.5:1 に届かない。
+   色を濃くしてコントラストを確保し、さらに記号(▲/▼)を併記して
+   色覚に依存せず読めるようにする（色だけで情報を伝えない）。 */
+.jz-profitrow.good{background:linear-gradient(90deg, rgba(15,122,68,.13), rgba(15,122,68,.02));}
+.jz-profitrow.good b{color:#0f7a44;}
+.jz-profitrow.bad{background:linear-gradient(90deg, rgba(194,55,44,.13), rgba(194,55,44,.02));}
+.jz-profitrow.bad b{color:#c2372c;}
+.jz-profitrow.good b::before{content:"▲ "; font-size:.82em;}
+.jz-profitrow.bad  b::before{content:"▼ "; font-size:.82em;}
+.jz-profitrow small{opacity:.85;}
 .jz-profitrow.jz-rowin{animation:jzProfitIn .55s cubic-bezier(.2,.9,.3,1.35) both;}
 @keyframes jzProfitIn{from{opacity:0; transform:translateY(10px) scale(.92)}
   60%{transform:scale(1.04)}to{opacity:1; transform:none}}

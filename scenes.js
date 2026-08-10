@@ -742,7 +742,10 @@ function runwayChip(s){
   if(!isFinite(w)) return `<div class="jz-chip jz-rw ok"><div class="lbl">RUNWAY</div><div class="val">安定</div></div>`;
   const n = Math.floor(w);
   const cls = n < 4 ? "bad" : n < 8 ? "warn" : "ok";
-  return `<div class="jz-chip jz-rw ${cls}"><div class="lbl">RUNWAY</div><div class="val">${n>=99?"99+":n} 週</div></div>`;
+  /* 警告と危険を色だけで分けていた（黄と赤）。色覚に依存せず区別できるよう、
+     ラベル側に記号と語を出す。——危機情報は色以外の手がかりを必ず持たせる。 */
+  const mark = cls === "bad" ? "🔥 のこり" : cls === "warn" ? "⚠ のこり" : "RUNWAY";
+  return `<div class="jz-chip jz-rw ${cls}"><div class="lbl">${mark}</div><div class="val">${n>=99?"99+":n} 週</div></div>`;
 }
 /* 進行中のマクロ事象（PANDEMIC等）を、需要が何%になっているかと一緒に出す */
 function macroChip(s){
@@ -1252,7 +1255,9 @@ function sceneLive(){
         </div>
       </div>`:``}
     ${ s.week===1 && !(s.history||[]).length ? `
-      <div class="jz-hint" style="top:auto;bottom:calc(96px + env(safe-area-inset-bottom))">
+      <!-- 96px 固定だと、PC幅でナビが 80px 高になった時に上端が 94px まで来て
+           クリアランスが 2px しか残らない。ナビの高さを変数で持ち、そこから積む。 -->
+      <div class="jz-hint" style="top:auto;bottom:calc(var(--navH, 80px) + 26px + env(safe-area-inset-bottom))">
         <div class="jz-chip">🦉 まずは <b style="color:var(--jzGold)">⚡今週の行動</b> から。仕込んで、売ってみよう</div>
       </div>`:``}
     <div class="jz-nav">
