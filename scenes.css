@@ -340,6 +340,12 @@
 .jz-actor[data-who="player"] {height:94%;}
 .jz-actor.a-left {left:-1%;  transform-origin:bottom left;}
 .jz-actor.a-right{right:-1%; transform-origin:bottom right;}
+/* 右に立つ人は内（画面中央）を向かせる。素材はどれも右向きに描かれているので、
+   そのまま右に置くと相手に背を向け、会話に見えない。
+   ——反転は .jz-actor 本体ではなく子の img/svg にかける。本体の transform は
+   on/off のスケール演出が使っており、そこへ足すと打ち消し合う。 */
+.jz-actor.a-right img,
+.jz-actor.a-right svg{transform:scaleX(-1);}
 /* 話している側だけを前に出す。黙っている側は暗く・小さくして視線を奪わない。
    誰の発言かを色ではなく明るさと大きさで示す＝視線誘導の基本。 */
 .jz-actor.on { transform:scale(1); opacity:1; }
