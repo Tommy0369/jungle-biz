@@ -1257,7 +1257,7 @@ function sceneLive(){
     ${ s.week===1 && !(s.history||[]).length ? `
       <!-- 96px 固定だと、PC幅でナビが 80px 高になった時に上端が 94px まで来て
            クリアランスが 2px しか残らない。ナビの高さを変数で持ち、そこから積む。 -->
-      <div class="jz-hint" style="top:auto;bottom:calc(var(--navH, 80px) + 26px + env(safe-area-inset-bottom))">
+      <div class="jz-hint" style="top:auto;bottom:calc(var(--navH, 80px) + 26px + var(--sab))">
         <div class="jz-chip">🦉 まずは <b style="color:var(--jzGold)">⚡今週の行動</b> から。仕込んで、売ってみよう</div>
       </div>`:``}
     <div class="jz-nav">

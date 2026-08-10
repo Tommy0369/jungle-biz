@@ -2,7 +2,10 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<!-- viewport-fit=cover が無いと env(safe-area-inset-*) が常に 0 になり、
+     セーフエリアを避けている13箇所の指定がすべて無効化される（ホームインジケータや
+     ノッチに下部UIが潜り込む）。cover を付けて初めてそれらが機能する。 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#0b3d2e" />
 <title>🌴 JUNGLE BIZ — ゼロから始めるジャングル経営サバイバル</title>
 <style>
@@ -230,7 +233,7 @@ h1,h2,h3{margin:0;}
 .chart{width:100%; height:120px; display:block; background:#fff; border-radius:12px; margin-top:6px;}
 
 /* フローティング下部バー */
-.gobar{position:fixed; left:0; right:0; bottom:0; z-index:30; padding:12px 14px calc(12px + env(safe-area-inset-bottom)); background:linear-gradient(180deg, rgba(11,61,46,0), #0b3d2e 40%);}
+.gobar{position:fixed; left:0; right:0; bottom:0; z-index:30; padding:12px 14px calc(12px + var(--sab)); background:linear-gradient(180deg, rgba(11,61,46,0), #0b3d2e 40%);}
 .gobar .inner{max-width:720px; margin:0 auto;}
 
 /* コイン演出 */
