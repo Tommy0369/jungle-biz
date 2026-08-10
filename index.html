@@ -543,6 +543,20 @@ const CHARS = {
   ele:  { name:"ELEPHANT",emoji:"🐘", role:"オペレーション", color:"#6b7280" },
 };
 
+/* キャラの顔。立ち絵があればそれを、無ければ絵文字を返す。
+   ——OWL は char/owl_* の画像を持っているのに、本編UIでは全て絵文字だった。
+   感情が動く場面（決算・助言・正誤）に絵文字が座っていると、そこへ感情を預けられない。
+   MARK/TIGER/P-CHAN/ELEPHANT はまだ画像が無いので、自動的に絵文字へ落ちる。 */
+function ava(who, mood){
+  try{
+    if(window.Scenes && Scenes.actorArt){
+      const html = Scenes.actorArt(who, mood || "normal");
+      if(html) return `<span class="avaimg">${html}</span>`;
+    }
+  }catch(e){}
+  return (CHARS[who] && CHARS[who].emoji) || "🦉";
+}
+
 // --- アクション定義（時間を消費する行動） ---
 // unlock: このレベル以上で解放
 // unlockWeek: この週から選べるようになる（§15 理解の順番を崩さない）
@@ -2867,7 +2881,7 @@ function renderSelect(){
     <div class="wrap">
       <div class="topbar"><div class="week-badge">${carry?`🔄 次の事業へ（WEEK ${cs.week}）`:"🌴 事業を選ぼう"}</div></div>
       <div class="speech" style="margin-bottom:14px">
-        <div class="ava">🦉</div>
+        <div class="ava">${ava("owl")}</div>
         <div class="bub">${owl}</div>
       </div>
       ${carry?`<div class="card" style="margin-bottom:14px;background:#f7f9ff">
@@ -2928,7 +2942,7 @@ function introModal(b){
         <div style="font-size:13px;line-height:1.6;margin-top:4px">${D.desc}</div>
       </div>
       <div class="speech" style="box-shadow:none;background:#f2fff7">
-        <div class="ava">🦉</div>
+        <div class="ava">${ava("owl")}</div>
         <div class="bub">手持ちは <b>${fmt(s?s.cash:CONFIG.startCash)}</b> と、あなたの <b>週40時間</b>。<br>
         まずは <b>「仕込み・営業」</b>で商品を作って売り、<b>「SNS投稿」</b>で知ってもらおう。<br>
         時間は限られている。<b>全部はできない</b>。何にどれだけ使うか——それが経営だ。</div>
@@ -3382,7 +3396,7 @@ function renderInvest(s){
       ${has?'<span class="cost">導入済</span>':`<button class="btn sky small" data-buy="${a.id}">導入</button>`}
     </div>`;}).join("");
   const warn = auto.count>=3
-    ? `<div class="speech" style="box-shadow:none;background:#fff4f2"><div class="ava">🦉</div><div class="bub">
+    ? `<div class="speech" style="box-shadow:none;background:#fff4f2"><div class="ava">${ava("owl")}</div><div class="bub">
        <b>入れすぎに注意だ。</b>自動化は便利だが、増やすほど毎週の固定費が積み上がり、
        人の手ざわりも減っていく（現在 満足度 −${auto.overload}）。何でも自動化すればいい、わけじゃない。</div></div>` : "";
   return `<div class="ctrl">
@@ -3427,7 +3441,7 @@ function openRecruit(){
   modalRoot.innerHTML=`<div class="overlay"><div class="modal">
     <div class="mhead"><div class="mbig">🧑‍🤝‍🧑</div><div class="mtit">仲間を探す</div></div>
     <div class="mbody">
-      <div class="speech" style="box-shadow:none;background:#f2fff7"><div class="ava">🐘</div><div class="bub"><b>ELEPHANT：</b>全部、自分でやる必要ある？<br>人を雇うと給与という固定費は増える。でもその分、時間と客数が増える。<b>人件費は投資</b>にもなるんだ。</div></div>
+      <div class="speech" style="box-shadow:none;background:#f2fff7"><div class="ava">${ava("ele")}</div><div class="bub"><b>ELEPHANT：</b>全部、自分でやる必要ある？<br>人を雇うと給与という固定費は増える。でもその分、時間と客数が増える。<b>人件費は投資</b>にもなるんだ。</div></div>
       ${cards}
       <button class="btn ghost big" data-close style="margin-top:14px">閉じる</button>
     </div></div></div>`;
@@ -3839,7 +3853,7 @@ function resultModal(res, ctx){
   const s=Engine.state;
   const prev=s.history[s.history.length-2];
   const dp=(cur,pv)=>{ if(pv===undefined)return""; const d=cur-pv; if(Math.abs(d)<1)return""; return `<span class="deltapill ${d>0?'up':'down'}">${d>0?'+':''}${fmtNum(d)}</span>`; };
-  const eventLine = ctx && ctx._event ? `<div class="speech" style="box-shadow:none;background:#fff7e6;margin-bottom:10px"><div class="ava">${CHARS[res.ctxChar||'owl'].emoji}</div><div class="bub">${ctx.note||''}</div></div>` : "";
+  const eventLine = ctx && ctx._event ? `<div class="speech" style="box-shadow:none;background:#fff7e6;margin-bottom:10px"><div class="ava">${ava(res.ctxChar||'owl')}</div><div class="bub">${ctx.note||''}</div></div>` : "";
   // レベルに応じて損益の粒度を変える
   const showProfit=Engine.isRevealed("PROFIT");
   const showCost=Engine.isRevealed("COST");
@@ -3871,7 +3885,7 @@ function resultModal(res, ctx){
     <div class="mbody">
       ${eventLine}
       <div class="pl card" style="box-shadow:none;background:#fffdf5;border:2px solid #f0e9d6">${rows}</div>
-      <div class="speech" style="margin-top:12px"><div class="ava">🦉</div><div class="bub"><b>OWL CHECK：</b>${owl}</div></div>
+      <div class="speech" style="margin-top:12px"><div class="ava">${ava("owl")}</div><div class="bub"><b>OWL CHECK：</b>${owl}</div></div>
       <button class="btn banana big" data-next style="margin-top:14px">次へ ▶</button>
     </div>`,
     wire:(root,done)=>{ $("[data-next]",root).onclick=()=>{ Sound.click(); done(); }; } };
@@ -4007,7 +4021,7 @@ function maybeWhy(res, s){
         if(correct===2) expl="価格を下げると客数は増えても、1個あたりの粗利が減る。売上が増えても利益が減るのはこのパターン。<b>売上 ≠ 利益</b>。";
         else if(correct===1) expl="広告などの経費が売上の伸び以上に増えると、利益は減る。集客コストが見合っているか（ROI）を常に見よう。";
         else expl="原価（変動費）の割合が高いと、売れば売るほど粗利が薄い。原価率のコントロールが効いてくる。";
-        b.parentNode.innerHTML=`<div class="speech" style="box-shadow:none;background:${ok?'#f2fff7':'#fff7e6'}"><div class="ava">🦉</div><div class="bub"><b>${ok?'正解！':'惜しい。'}</b><br>${expl}</div></div><button class="btn banana big" data-next style="margin-top:14px">なるほど！ ▶</button>`;
+        b.parentNode.innerHTML=`<div class="speech" style="box-shadow:none;background:${ok?'#f2fff7':'#fff7e6'}"><div class="ava">${ava("owl", ok?"happy":"normal")}</div><div class="bub"><b>${ok?'正解！':'惜しい。'}</b><br>${expl}</div></div><button class="btn banana big" data-next style="margin-top:14px">なるほど！ ▶</button>`;
         $("[data-next]",b.parentNode).onclick=()=>{ Sound.click(); done(); };
       };});} };
   }
@@ -4055,7 +4069,7 @@ function checkLevelUp(){
       <div class="mtit">${newPhase ? `PHASE ${ph.no}　${ph.title}` : `WEEK ${nw} で解放`}</div>
       <div style="font-weight:900;color:var(--leaf-700);margin-top:2px">${newPhase ? ph.sub : u.title}</div></div>
     <div class="mbody">
-      <div class="speech" style="box-shadow:none;background:#f2fff7"><div class="ava">🦉</div><div class="bub">${u.lesson}</div></div>
+      <div class="speech" style="box-shadow:none;background:#f2fff7"><div class="ava">${ava("owl")}</div><div class="bub">${u.lesson}</div></div>
       <div class="muted center" style="font-size:12px;margin-top:10px">新しい数字が見えるようになりました</div>
       <button class="btn banana big" data-next style="margin-top:12px">次の週へ ▶</button>
     </div>`,
@@ -4070,7 +4084,7 @@ function lessonModal(key){
       <div class="center" style="font-size:11px;font-weight:900;letter-spacing:.12em;color:var(--leaf-700)">🎓 BUSINESS LESSON UNLOCKED</div>
       <div class="mbig">${L.emoji}</div><div class="mtit">${L.title}</div></div>
     <div class="mbody">
-      <div class="speech" style="box-shadow:none;background:#f2fff7"><div class="ava">🦉</div><div class="bub">${L.body}</div></div>
+      <div class="speech" style="box-shadow:none;background:#f2fff7"><div class="ava">${ava("owl")}</div><div class="bub">${L.body}</div></div>
       <div class="muted center" style="font-size:12px;margin-top:10px">失敗は、いちばん記憶に残る授業だ</div>
       <button class="btn banana big" data-next style="margin-top:12px">なるほど ▶</button>
     </div>`,
@@ -4163,7 +4177,7 @@ function openFinanceChoice(after){
     <div class="mhead"><div class="mbig">🏦</div><div class="mtit">開業資金を、どう作る？</div></div>
     <div class="mbody">
       <div class="speech" style="box-shadow:none;background:#f2fff7">
-        <div class="ava">🦉</div>
+        <div class="ava">${ava("owl")}</div>
         <div class="bub"><b>OWL：</b>手持ちは <b>${fmt(own)}</b>。正直、これだけで商売を始めるのは厳しい。<br>
         実際、開業した人の資金は<b>3分の2が借入</b>で、自己資金は4分の1ほどだ。<br>
         借りるのは悪いことじゃない。<b>返せる範囲で借りて、返しきる</b>——それも経営の腕だ。</div>
@@ -4504,7 +4518,7 @@ function openMacroNews(){
         <div style="font-size:14px;line-height:1.7">${d.news}</div>
         <div class="muted" style="font-size:12.5px;margin-top:8px">${d.newsSub}</div>
       </div>
-      <div class="speech" style="margin-top:12px"><div class="ava">🦉</div><div class="bub">
+      <div class="speech" style="margin-top:12px"><div class="ava">${ava("owl")}</div><div class="bub">
         まだ何も起きていない。起きないかもしれない。<br>
         ——ただ、<b>現金を厚くしておく</b>ことは、いつでも損にはならない。
       </div></div>
@@ -4537,7 +4551,7 @@ function openMacroStart(){
         <div class="r sub"><span>　あなたの事業は</span><span class="tabnum">来店${Math.round(mix.walkIn*100)}%・観光${Math.round(mix.tourist*100)}%依存</span></div>
         <div class="r total"><span>💵 現金</span><b class="tabnum">${fmt(s.cash)}<small style="color:var(--good)">（減っていない）</small></b></div>
       </div>
-      <div class="speech" style="margin-top:12px"><div class="ava">🦉</div><div class="bub">
+      <div class="speech" style="margin-top:12px"><div class="ava">${ava("owl")}</div><div class="bub">
         奪われたのは金じゃない。<b>「これまでのやり方」</b>だ。<br>
         手元の現金で、どこまで耐えられる？　それとも、やり方を変えるか。
       </div></div>
@@ -4642,7 +4656,7 @@ function openPivot(){
           ブランドも、顧客も、仲間も引き継いでいる。<b>ゼロからではない</b>。<br>
           ただし新しい売り方は、まだ知られていない——認知は落ち、しばらく成約率も伸びない。
         </div>
-        <div class="speech" style="margin-top:12px"><div class="ava">🦉</div><div class="bub">
+        <div class="speech" style="margin-top:12px"><div class="ava">${ava("owl")}</div><div class="bub">
           転換は「魔法」じゃない。<b>新しい商売を、もう一度覚え直すこと</b>だ。<br>その時間を買えるだけの現金があるか——それが勝負を分ける。
         </div></div>
         <button class="btn banana big" data-next style="margin-top:14px;width:100%">やってみる ▶</button>

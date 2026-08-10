@@ -1439,7 +1439,10 @@ function interceptPlay(){
   sceneLive(); return true;
 }
 
-return { boot, interceptPlay, openPlan, buildResultModal };
+/* actorArt を公開する。本体UI(index.html)には AssetReg への参照が無く、
+   キャラが全て絵文字のままだった。演出シーンだけ立ち絵で本編は絵文字、という
+   二重表現になっていたので、同じ関数を本体からも使えるようにする。 */
+return { boot, interceptPlay, openPlan, buildResultModal, actorArt };
 })();
 
 
