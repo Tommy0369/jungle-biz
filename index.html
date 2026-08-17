@@ -295,6 +295,33 @@ h1,h2,h3{margin:0;}
 .helpline{font-size:12px; color:var(--leaf-300); text-align:center; margin-top:8px; line-height:1.5;}
 .footer-note{color:rgba(255,255,255,.4); font-size:11px; text-align:center; margin-top:28px; line-height:1.6;}
 a.link{color:var(--sky); font-weight:800;}
+
+/* ===== 診断カード（Lite完走） ===== */
+.dg{ text-align:left; }
+.dg-tag{ font-size:11px; font-weight:900; letter-spacing:.2em; color:#8a7b4f; }
+.dg-type{ font-size:22px; font-weight:900; margin:4px 0 14px; line-height:1.35; }
+.dg-type .dg-x{ color:#9aa39c; font-weight:600; padding:0 4px; }
+.dg-axes{ display:grid; gap:8px; }
+.dg-ax{ display:grid; grid-template-columns:52px 1fr 46px; align-items:center; gap:8px; }
+.dg-nm{ font-size:12px; color:#5d6b62; }
+.dg-tr{ position:relative; display:block; height:10px; border-radius:2px;
+        background:rgba(20,32,26,.10); overflow:hidden; }
+.dg-tr i{ position:absolute; top:0; bottom:0; border-radius:2px; }
+.dg-tr u{ position:absolute; left:50%; top:0; bottom:0; width:1px;
+          background:rgba(20,32,26,.35); }
+.dg-v{ font-size:12px; font-weight:800; text-align:right; }
+.dg-poles{ display:flex; justify-content:space-between; font-size:10px; color:#9aa39c;
+           padding:6px 46px 0 52px; letter-spacing:.08em; }
+.dg-body{ margin-top:14px; padding-top:12px; border-top:1px solid rgba(20,32,26,.10); }
+.dg-h{ font-weight:900; font-size:14px; margin-top:12px; line-height:1.6; }
+.dg-h:first-child{ margin-top:0; }
+.dg-ev{ font-size:12.5px; line-height:1.75; color:#5d6b62; margin-top:5px;
+        padding-left:10px; border-left:2px solid #cbb98a; }
+.dg-note{ margin-top:14px; font-size:11px; color:#9aa39c; }
+@media (prefers-reduced-motion:no-preference){
+  .dg-tr i{ animation:dgGrow .7s cubic-bezier(.22,.7,.3,1) both; }
+  @keyframes dgGrow{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
+}
 </style>
 <link rel="stylesheet" href="scenes.css">
 </head>
@@ -325,6 +352,21 @@ const CONFIG = {
      占める自己資金は平均 24.5%（金融機関からの借入が 65.2%）。
      ＝ 手持ちだけで始める人はほとんどいない。ここもその比率に寄せる。 */
   startCash: 28000,
+  mode: "full",            // "full" | "lite"
+  lite: {
+    totalWeeks: 12,
+    unlock: { sns:2, sales:3, improve:4, account:5, research:6, recruit:6, manual:8 },
+    autoUnlockWeek: 8,
+    /* 6.6 実測で最適点を確定（12ペルソナ×5事業×10seed）。
+       38k: clear 55.4% / 一致10 / 安定77.6   ← 資金が薄く仕組み化が不安定
+       50k: clear 49.7% / 一致10 / 安定78.8   ← 採用
+       62k: clear 47.0% / 一致 8 / 安定82.3   ← 資金が潤沢すぎて全ペルソナが仕組み化し、
+       78k: clear 43.1% / 一致 8 / 安定84.8      SYSTEM 軸で差がつかなくなる
+       安定率と一致率は逆相関する。一致率を優先して 50k。 */
+    startCash: 50000,
+    /* 融資は不可。small/full だと返済でクリア率が 18.4% / 6.1% まで落ちる（実測）。 */
+    financePlan: "none",
+  },
   totalWeeks: 24,        // STARTUP ERA の週数（旧「ゲーム全体の長さ」。§1 24週は終了ではなく節目）
   baseHours: 40,
   saveKey: "junglebiz_save_v2",
@@ -580,6 +622,28 @@ const ACTIONS = {
   manual:{ id:"manual", emoji:"📋", name:"マニュアル作成", hours:10, unlockWeek:20,
     desc:"仕組み化。自分がいなくても回る度合いが上がり、同じ時間で回せる量が増える。" },
 };
+function unlockOf(actionId){
+  if(CONFIG.mode==="lite" && CONFIG.lite.unlock[actionId]!=null) return CONFIG.lite.unlock[actionId];
+  return ACTIONS[actionId].unlockWeek;
+}
+function autoUnlockWeek(){
+  return CONFIG.mode==="lite" ? CONFIG.lite.autoUnlockWeek : 21;
+}
+/* URL で Lite を起動できるようにする（?lite または ?mode=lite）。
+   既定は従来どおりフル版。URLに何も付けなければ挙動は一切変わらない。 */
+(function applyModeFromURL(){
+  try{
+    const q=new URLSearchParams(location.search);
+    if(q.has("lite") || q.get("mode")==="lite") CONFIG.mode="lite";
+    if(q.get("mode")==="full") CONFIG.mode="full";
+  }catch(e){}
+})();
+function totalWeeks(){
+  return CONFIG.mode==="lite" ? CONFIG.lite.totalWeeks : CONFIG.totalWeeks;
+}
+function gameStartCash(){
+  return (CONFIG.mode==="lite" && CONFIG.lite.startCash!=null) ? CONFIG.lite.startCash : CONFIG.startCash;
+}
 
 // --- スタッフ候補 ---
 // 給与は「増える粗利で回収できるかギリギリ」に設定する。
@@ -1392,12 +1456,12 @@ const Economy = {
        PHASES は PEOPLE を宣言しているのに、評価器に存在せず一度も出せなかった。
        ただし「まだ人を雇えない週」に言っても手の打ちようがないので、解放後に限る。 */
     const dep = r.next ? r.next.ownerDependency : (state.ownerDependency||100);
-    const canAct = (typeof recruitGate==="function") ? recruitGate(state).ok : (state.week>=17);
+    const canAct = (typeof recruitGate==="function") ? recruitGate(state).ok : (state.week>=unlockOf("recruit"));
     if(canAct && r.freeHours <= 8 && dep >= 70 && r.loadRatio > 0.80)
       list.push({code:"PEOPLE", label:"人と仕組み", w: Math.min(1.6, 1.25 + (dep-70)/75)});
     /* §CAPITAL 現金は足りているのに、次の成長へ配分できていない。
        経営者の仕事＝資源配分そのものが、詰まりとして一度も出てこなかった。 */
-    if(state.week >= 17 && weeksLeft >= 10 && (state.systemLevel||0) < 40
+    if(state.week >= unlockOf("recruit") && weeksLeft >= 10 && (state.systemLevel||0) < 40
        && (state.autos||[]).length === 0)
       list.push({code:"CAPITAL", label:"資本の配分", w:1.5});
     if(!list.length) return {code:"NONE", label:"大きな詰まりなし"};
@@ -2139,7 +2203,7 @@ const Engine = {
       (w1Fixed * ECON.openingSupportRatio / unitMargin) / ECON.purchaseFrequency);
     // 初期値は設計書 §93 に準拠
     this.state = {
-      bizId, week:1, cash:Math.round(CONFIG.startCash * D.startCashMultiplier),
+      bizId, week:1, cash:Math.round(gameStartCash() * D.startCashMultiplier),
       level:1, xp:0,
       awareness:Math.round(b.aware*ECON.openingAwareMult), quality:50, satisfaction:50, brand:5,
       reputation:50, serviceQuality:50,
@@ -2976,7 +3040,7 @@ function renderPlay(){
   app.innerHTML = `
     <div class="wrap">
       <div class="topbar">
-        <div class="week-badge">WEEK ${s.week}${s.era==="STARTUP"?`<span style="opacity:.5">/${CONFIG.totalWeeks}</span>`:''}
+        <div class="week-badge">WEEK ${s.week}${s.era==="STARTUP"?`<span style="opacity:.5">/${totalWeeks()}</span>`:''}
           <span class="area">${area.emoji} ${area.name}</span></div>
         <div style="text-align:right">
           <span class="lvl-chip">PHASE ${ph.no} ${ph.emoji} ${ph.title}</span>
@@ -3002,7 +3066,7 @@ function renderPlay(){
       ${s.week>=9 ? `<div class="sec-h">📣 広告を出す？ <span class="hint">払った以上に返ってくるか</span></div><div id="adBox">${renderAdCtrl()}</div>`:""}
 
       ${(recruitGate(s).ok || (s.staff||[]).length) ? `<div class="sec-h">🧑‍🤝‍🧑 チーム</div><div id="teamBox">${renderTeam(s)}</div>`:""}
-      ${s.week>=21 ? `<div class="sec-h">🏝 投資・自動化 <span class="hint">今のボトルネックはどこ？</span></div>
+      ${s.week>=autoUnlockWeek() ? `<div class="sec-h">🏝 投資・自動化 <span class="hint">今のボトルネックはどこ？</span></div>
         <div class="ctrl"><div class="muted" style="font-size:13px">現金 <b>${fmt(s.cash)}</b>／導入済み <b>${(s.autos||[]).length}件</b>・固定費 <b>${fmt(Economy.autoEffect(s).fixed)}/週</b></div>
         <button class="btn sky small" id="investBtn" style="margin-top:10px">🏝 投資先を見る</button></div>`:""}
 
@@ -3198,8 +3262,8 @@ function renderActions(s){
   return Object.values(ACTIONS).map(a=>{
     // 採用だけは「週」ではなく「状況」で開く（§13）
     const gate = a.id==="recruit" ? rg : null;
-    const locked = gate ? !gate.ok : (s.week < a.unlockWeek);
-    const lockTxt = gate ? '🔒 '+gate.reason : '🔒 WEEK '+a.unlockWeek+'で解放';
+    const locked = gate ? !gate.ok : (s.week < unlockOf(a.id));
+    const lockTxt = gate ? '🔒 '+gate.reason : '🔒 WEEK '+unlockOf(a.id)+'で解放';
     if(a.id==="operate"){
       // ステッパー式
       return `<div class="act ${plan.produce>0?'on':''}" data-act="operate">
@@ -3225,8 +3289,7 @@ function renderActions(s){
    ——人を雇う理由が、プレイヤー自身の画面の中にある状態を作る。 */
 const RECRUIT_EARLY = { fromWeek:5, lostNeeded:12, lookback:3, salaryWeeks:3 };
 function recruitGate(s){
-  const A=ACTIONS.recruit;
-  if(s.week >= A.unlockWeek) return { ok:true, by:"week" };
+  if(s.week >= unlockOf("recruit")) return { ok:true, by:"week" };
   if(s.week < RECRUIT_EARLY.fromWeek)
     return { ok:false, reason:`WEEK ${RECRUIT_EARLY.fromWeek} から挑戦できる`, lost:0, need:RECRUIT_EARLY.lostNeeded };
   const h=(s.history||[]).slice(-RECRUIT_EARLY.lookback);
@@ -3744,6 +3807,12 @@ function advanceWeek(){
   s.era = era;
   plan = freshPlan();
   Engine.save();
+
+  // Lite：今回のランは totalWeeks() 週で終了（ERA構造はフル版のまま）
+  if(CONFIG.mode==="lite" && s.week > totalWeeks()){
+    openLiteComplete();
+    return;
+  }
 
   // §3 §77 §78 STARTUP ERA 完了（かつての「ゲーム終了」地点）
   if(eraChanged && era === "SURVIVAL_SCALE" && !s.eraDone.STARTUP){
@@ -4367,6 +4436,97 @@ function openBankrupt(){
 }
 
 /* ============ ERA / マクロ事象の画面（事業ライフサイクル v0.3） ============ */
+
+/* ===== 診断カード（Lite完走画面に出す） =====
+   ±の軸に良い/悪いの色を使わない。職人型が回転型より優れているわけではないので、
+   緑=良い/赤=悪い に見せると診断そのものを誤解させる。＋はティール、−は黄土。 */
+function diagnosisCard(runId){
+  let d=null, rep=null;
+  try{
+    const db=PlayLog.load(), run=(db.runs||[]).find(r=>r.id===runId);
+    if(!run) return "";
+    d=Diagnose.fromPlayLog(runId);   // ← runId を渡す（run オブジェクトではない）
+    rep=Diagnose.report(runId);
+  }catch(e){ return ""; }
+  // 軸が空なら描かない（0が5本並んだカードを出すくらいなら出さないほうがいい）
+  if(!d || !d.axes || !Object.keys(d.axes).length || d.error) return "";
+  if(!rep || rep.error) return "";
+
+  const LBL={PRICE:"価格",OFFENSE:"攻め",CRAFT:"品質",SYSTEM:"仕組み",DISCIPLINE:"規律"};
+  const bar=k=>{
+    const v=Math.max(-100,Math.min(100, d.axes[k]||0));
+    const w=Math.abs(v)/2;                       // 半幅(0〜50%)
+    const left=v>=0 ? 50 : 50-w;
+    const col=v>=0 ? "#2f8f7d" : "#b8843c";
+    /* 伸びる向きを明示する。transform-origin を省くと既定の center になり、
+       scaleX(0) が中心に潰れてバーが出ない（幅0のまま止まる）。 */
+    const org=v>=0 ? "left center" : "right center";
+    return `<div class="dg-ax">
+      <span class="dg-nm">${LBL[k]}</span>
+      <span class="dg-tr"><i style="left:${left}%;width:${w}%;background:${col};transform-origin:${org}"></i><u></u></span>
+      <span class="dg-v tabnum" style="color:${col}">${v>=0?"+":"−"}${Math.abs(Math.round(v))}</span>
+    </div>`;
+  };
+  const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  // 3点セットを見出し / 根拠 に分けて組む
+  const blocks=[];
+  (rep.text||"").split("\n").forEach(line=>{
+    if(!line.trim()) return;
+    if(line.indexOf("　根拠：")===0) blocks.push(`<div class="dg-ev">${esc(line.replace("　根拠：",""))}</div>`);
+    else blocks.push(`<div class="dg-h">${esc(line)}</div>`);
+  });
+
+  return `<div class="card dg" style="margin-top:12px">
+    <div class="dg-tag">経営診断</div>
+    <div class="dg-type">${esc(d.main?d.main.type:"—")}${d.sub?` <span class="dg-x">×</span> ${esc(d.sub.type)}`:""}</div>
+    <div class="dg-axes">${DIAG_AXES.map(bar).join("")}</div>
+    <div class="dg-poles"><span>−100</span><span>0</span><span>+100</span></div>
+    <div class="dg-body">${blocks.join("")}</div>
+    <div class="dg-note">この診断は、あなたが実際に選んだ手だけから作られています。</div>
+  </div>`;
+}
+
+/* Lite 12週完走画面（診断を表示する） */
+function openLiteComplete(){
+  const s=Engine.state, sc=computeFinalScores();
+  PlayLog.end(s, "LITE_COMPLETE");
+  PlayLog.submit(s._runId);
+  setTimeout(()=>maybeAskShareConsent(), 900);
+  const back=document.getElementById("jzBack"); if(back) back.remove();
+  const totalSales=s.history.reduce((a,x)=>a+x.sales,0);
+  const B=BUSINESSES[s.bizId];
+  app.innerHTML=`<div class="wrap">
+    <div class="center" style="color:#fff;margin-top:10px">
+      <div style="font-size:58px" class="badge-pop">⚡</div>
+      <div style="font-size:12px;font-weight:800;color:var(--leaf-300);margin-top:6px;letter-spacing:.22em">JUNGLE BIZ LITE</div>
+      <div style="font-size:24px;font-weight:900;margin-top:2px">${totalWeeks()}週を、走り切った</div>
+      <div class="muted" style="color:var(--leaf-300);font-size:13px;margin-top:6px">${B.emoji} ${B.name}／創業から ${s.week-1} 週</div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="center" style="font-weight:900;font-size:15px;margin-bottom:2px">経営者スコア
+        <span style="color:var(--leaf-700);font-size:22px">${Math.round((sc.PROFIT+sc.CASH+sc.CUSTOMER+sc.MARKETING+sc.SYSTEM+sc.FREEDOM)/6)}</span>/100</div>
+      ${radarChart(sc)}
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div style="font-weight:900;margin-bottom:6px">📋 ${totalWeeks()}週の成績</div>
+      <div class="pl">
+        <div class="r"><span>累計売上</span><b class="tabnum">${fmt(totalSales)}</b></div>
+        <div class="r"><span>累計利益</span><b class="tabnum" style="color:${sc.cumProfit<0?'var(--danger)':'var(--good)'}">${fmt(sc.cumProfit)}</b></div>
+        <div class="r"><span>現金 CASH</span><b class="tabnum">${fmt(s.cash)}</b></div>
+        <div class="r"><span>仲間</span><b class="tabnum">${(s.staff||[]).length}人</b></div>
+        <div class="r"><span>仕組み化</span><b class="tabnum">${Math.round(s.systemLevel)}</b></div>
+      </div>
+    </div>
+    ${diagnosisCard(s._runId)}
+    ${expReport()}
+    <div class="row" style="margin-top:16px;gap:8px">
+      <button class="btn banana big" id="liteRestart">もう一度 ▶</button>
+      <button class="btn ghost" id="liteMenu">タイトルへ</button>
+    </div>
+  </div>`;
+  $("#liteRestart").onclick=()=>{ Engine.newGame(s.bizId, s.difficulty); plan=freshPlan(); renderPlay(); };
+  $("#liteMenu").onclick=()=>openTitle();
+}
 
 /* §3 §78 STARTUP ERA COMPLETE。ここで終わらせない。「区切り」であって「終わり」ではない */
 function openEraComplete(eraId){
@@ -5154,18 +5314,18 @@ const PERSONAS = {
     desc:"フェーズに合わせて広げる。特別強い武器はないが穴もない。",
     play(s,w){ const B=BUSINESSES[s.bizId];
       const acts = w<=5 ? ["sns"] : w<=12 ? ["sns","service"] : ["sns","improve"];
-      if(w>=20) acts.push("manual");
+      if(w>=unlockOf("manual")) acts.push("manual");
       return { produce:w<=8?2:3, price:Math.round(B.price*1.02),
                adBudget:(w>=9&&w<=16)?20000:0, actions:acts,
-               hire:w===17?["ele"]:null, buy:w===21?["pos"]:null }; } },
+               hire:w===unlockOf("recruit")?["ele"]:null, buy:w===autoUnlockWeek()?["pos"]:null }; } },
 
   growth: { tag:"AGGRESSIVE GROWTH", name:"攻めの拡大", emoji:"🚀",
     desc:"需要が見えたら即・供給と広告を積む。現金は後から追いつくと考える。",
     play(s,w){ const B=BUSINESSES[s.bizId];
       return { produce:w<=3?2:4, price:Math.round(B.price*0.98),
                adBudget:w>=5?35000:0, actions:w<=6?["sns"]:["sns","sales"],
-               hire:w===17?["ele"]:w===19?["cheetah"]:null,
-               buy:w===21?["pos"]:w===22?["booking"]:null }; } },
+               hire:w===unlockOf("recruit")?["ele"]:w===unlockOf("recruit")+2?["cheetah"]:null,
+               buy:w===autoUnlockWeek()?["pos"]:w===autoUnlockWeek()+1?["booking"]:null }; } },
 
   /* 「攻め」に道があるかを測るための対照。growth との違いは規律だけ——
      需要が供給を超えたときにだけ広げ、捌ける余力があるときにだけ広告を打つ。
@@ -5181,17 +5341,18 @@ const PERSONAS = {
       const acts=[];
       if(w>=2) acts.push("sns");
       if(w>=6 && !over) acts.push("improve");                 // 余裕がある時に質を上げる
-      if(w>=20) acts.push("manual");
+      if(w>=unlockOf("manual")) acts.push("manual");
       // §43 捌けない需要に広告費を払わない。余力と現金があるときだけ出す
       const ad = (w>=9 && room && rw>8) ? 18000 : 0;
       return { produce, price:Math.round(B.price*1.04), adBudget:ad, actions:acts,
-               hire:(w>=17 && over && s.cash>200000)?["ele"]:null,
-               buy:(w>=21 && s.cash>250000)?["pos"]:null }; } },
+               hire:(w>=unlockOf("recruit") && over && s.cash>200000)?["ele"]:null,
+               buy:(w>=autoUnlockWeek() && s.cash>250000)?["pos"]:null }; } },
 
   adheavy: { tag:"AD HEAVY", name:"広告全振り", emoji:"📢",
     desc:"とにかく広告。認知さえ取れば売れると信じている。",
     play(s,w){ const B=BUSINESSES[s.bizId];
-      return { produce:3, price:B.price, adBudget:w>=3?45000:0, actions:["sns"] }; } },
+      /* produce を抑える（広告で待つ＝現場に立ち続けない。STEP6.5-2） */
+      return { produce:1, price:B.price, adBudget:w>=3?45000:0, actions:["sns"] }; } },
 
   discount: { tag:"DISCOUNT", name:"安売り", emoji:"🏷",
     desc:"価格で勝負。安ければ客は来ると考えている。",
@@ -5205,7 +5366,7 @@ const PERSONAS = {
       const acts = w<=5 ? ["sns"] : ["sns","improve"];
       if(w>=13) acts.push("sales");
       return { produce:2, price:Math.round(B.price*(w<=8?1.15:1.35)),
-               adBudget:0, actions:acts, hire:w===17?["cheetah"]:null }; } },
+               adBudget:0, actions:acts, hire:w===unlockOf("recruit")?["cheetah"]:null }; } },
 
   customer: { tag:"CUSTOMER FIRST", name:"顧客第一", emoji:"❤️",
     desc:"接客と品質に全部を注ぐ。リピートで積み上げる。",
@@ -5213,26 +5374,34 @@ const PERSONAS = {
       const acts = ["service"]; if(w>=2) acts.push("sns");
       if(w>=6 && w%2===0) acts.push("improve");
       return { produce:2, price:Math.round(B.price*1.05), adBudget:0, actions:acts,
-               buy:w===21?["mail"]:null }; } },
+               buy:w===autoUnlockWeek()?["mail"]:null }; } },
 
   lean: { tag:"LEAN OPERATOR", name:"少数精鋭", emoji:"🪶",
     desc:"人を増やさず自分の手で回す。固定費を極限まで抑える。",
     play(s,w){ const B=BUSINESSES[s.bizId];
-      return { produce:2, price:Math.round(B.price*1.08), adBudget:0,
+      /* 自分で回す＝常に40hフル（STEP6.5-2）。actionsは時間が余れば */
+      return { produce:4, price:Math.round(B.price*1.08), adBudget:0,
                actions:w<=5?["sns"]:["sns","improve"] }; } },
 
   earlyhire: { tag:"EARLY HIRING", name:"早期採用", emoji:"🧑‍🤝‍🧑",
     desc:"解放と同時に人を増やす。手が空けば伸ばせると考える。",
     play(s,w){ const B=BUSINESSES[s.bizId];
       return { produce:3, price:B.price, adBudget:w>=10?15000:0, actions:["sns"],
-               hire:w===17?["ele"]:w===18?["ant"]:w===19?["beaver"]:null }; } },
+               hire:w===unlockOf("recruit")?["ele"]:w===unlockOf("recruit")+1?["ant"]:w===unlockOf("recruit")+2?["beaver"]:null }; } },
 
   automation: { tag:"AUTOMATION FIRST", name:"自動化優先", emoji:"🤖",
     desc:"解放まで現金を貯め、仕組みに一気に投じる。",
     play(s,w){ const B=BUSINESSES[s.bizId];
-      const acts=["sns"]; if(w>=20) acts.push("manual");
+      const acts=["sns"]; if(w>=unlockOf("manual")) acts.push("manual");
       return { produce:2, price:Math.round(B.price*1.03), adBudget:0, actions:acts,
-               buy:w===21?["pos","booking"]:w===22?["mail"]:w===23?["snsauto"]:null }; } },
+               /* 6.6: 同週に pos+booking（15万円）をまとめて買おうとすると資金が足りず、
+         購入判定 s.cash>cost*1.05 に弾かれて「自動化優先」なのに1台も買えない週があった。
+         安い順に1台ずつへ分割。実測で autos 0.84 → 1.9 台に安定。 */
+      buy:w===autoUnlockWeek()  ?["pos"]      // 60,000
+        : w===autoUnlockWeek()+1?["mail"]     // 70,000
+        : w===autoUnlockWeek()+2?["booking"]  // 90,000
+        : w===autoUnlockWeek()+3?["snsauto"]
+        : null }; } },
 
   cashkeep: { tag:"CONSERVATIVE CASH", name:"現金温存", emoji:"🏦",
     desc:"投資をせず現金を守る。減らないが、増えもしない。",
@@ -5248,7 +5417,7 @@ const PERSONAS = {
       if(w>=6 && w%2===0) acts.push("improve"); else if(w>=13) acts.push("service");
       return { produce:w<=8?2:3, price:Math.round(B.price*1.04),
                adBudget:(w>=9&&w<=18)?18000:0, actions:acts,
-               hire:w===17?["ele"]:null, buy:w===21?["pos"]:null }; } },
+               hire:w===unlockOf("recruit")?["ele"]:null, buy:w===autoUnlockWeek()?["pos"]:null }; } },
 
   /* §31 完全ランダムに近いBot。難易度がスキルを反映しているかの下限側の物差し。 */
   random: { tag:"RANDOM", name:"でたらめ", emoji:"🎲", bot:"random",
@@ -5259,8 +5428,8 @@ const PERSONAS = {
       return { produce:1+Math.floor(rnd()*3),
                price:Math.round(B.price*(0.55+rnd()*0.9)),
                adBudget:rnd()<0.4?Math.round(rnd()*50000):0, actions:acts,
-               hire:(w>=17&&rnd()<0.25)?[STAFF[Math.floor(rnd()*STAFF.length)].id]:null,
-               buy:(w>=21&&rnd()<0.3)?[AUTOMATIONS[Math.floor(rnd()*AUTOMATIONS.length)].id]:null }; } },
+               hire:(w>=unlockOf("recruit")&&rnd()<0.25)?[STAFF[Math.floor(rnd()*STAFF.length)].id]:null,
+               buy:(w>=autoUnlockWeek()&&rnd()<0.3)?[AUTOMATIONS[Math.floor(rnd()*AUTOMATIONS.length)].id]:null }; } },
 
   /* §32 分析型Bot。前週のボトルネック・市場レジーム・競合の動きを読んで手を変える。
      「数字を見るプレイヤー」の上限側の物差し。ここがEXPERTで生き残れないと難易度が理不尽。 */
@@ -5282,7 +5451,7 @@ const PERSONAS = {
       if(bn==="CONVERSION"){ acts.push("improve"); price*=0.97; }
       if(bn==="MARGIN"){ price*=1.06; ad=0; }
       if(bn==="CASH"){ produce=Math.max(1,produce-1); ad=0; price*=1.03; }
-      if(bn==="TIME" && w>=20) acts.push("manual");
+      if(bn==="TIME" && w>=unlockOf("manual")) acts.push("manual");
 
       // 競合への対応（§7 §8 値下げ合戦には乗らず、ブランドで耐える）
       if(cp.priceLevel<0.92){ acts.push("improve"); price=Math.max(price, B.price*1.0); }
@@ -5301,14 +5470,14 @@ const PERSONAS = {
 
       if(w>=2 && acts.length<2) acts.push("sns");
       if(w>=13 && acts.length<2 && !acts.includes("improve")) acts.push("service");
-      if(w>=20 && !acts.includes("manual")) acts.push("manual");
+      if(w>=unlockOf("manual") && !acts.includes("manual")) acts.push("manual");
 
       // 供給が余っているのに作りすぎない（§25 廃棄）
       if(last && last.capacity > last.demandCustomers*1.6) produce=Math.max(1,produce-1);
 
       return { produce, price:Math.round(price), adBudget:ad, actions:acts,
-               hire: (w>=17 && bn==="CAPACITY" && s.cash>150000) ? ["ele"] : null,
-               buy:  (w>=21 && s.cash>200000) ? ["pos"] : null }; } },
+               hire: (w>=unlockOf("recruit") && bn==="CAPACITY" && s.cash>150000) ? ["ele"] : null,
+               buy:  (w>=autoUnlockWeek() && s.cash>200000) ? ["pos"] : null }; } },
 };
 
 const Sim = {
@@ -5316,24 +5485,37 @@ const Sim = {
 
   // 1ラン（1事業 × 1ペルソナ × 1難易度 × 1シード）を24週まわす
   // opt: {weeks, capture:[週番号...]}  capture した週は state のスナップショットを返す（Regret用）
+  /* 6.6【重要】opt.mode を実際に効かせる。
+     これが無いと unlockOf()/autoUnlockWeek() が CONFIG.mode（既定 "full"）を見て
+     採用W17 / マニュアルW20 / 自動化W21 を返し、12週の Lite 検証では
+     hire も buy も一度も発動しなかった（＝SYSTEM 軸が常に測定不能だった）。
+     finally で必ず戻すので、フル版の挙動には影響しない。 */
   runOne(bizId, personaKey, difficulty, seed, opt){
     opt = (typeof opt==="number") ? {weeks:opt} : (opt||{});
+    const _mode0 = CONFIG.mode;
+    if(opt.mode) CONFIG.mode = opt.mode;
+    try { return this._runOne(bizId, personaKey, difficulty, seed, opt); }
+    finally { CONFIG.mode = _mode0; }
+  },
+  _runOne(bizId, personaKey, difficulty, seed, opt){
     setSeed(seed);
     Engine.newGame(bizId, difficulty);
     const s=Engine.state, P=PERSONAS[personaKey], p=Difficulty.profile(s);
     /* 開業資金の作り方。実情では 2/3 が借入なので、AIも既定で借りて始める。
        返済も現金から引かれるので、ここを省くと難易度が実態より甘く出る。 */
-    const plan0 = (P.finance!=null) ? P.finance : "full";
+    const plan0 = (CONFIG.mode==="lite" && CONFIG.lite.financePlan)
+      ? CONFIG.lite.financePlan
+      : ((P.finance!=null) ? P.finance : "full");
     const fp = FINANCE_PLANS.find(x=>x.id===plan0) || FINANCE_PLANS[2];
     if(fp.mult>0) Finance.borrow(s, Math.round(s.cash*fp.mult/1000)*1000);
     s.financeChoice = fp.id;
-    const B=BUSINESSES[bizId], W=opt.weeks||CONFIG.totalWeeks;
+    const B=BUSINESSES[bizId], W=opt.weeks||totalWeeks();
     const capture=opt.capture||null, states={};
     const startCash=s.cash;
     let cumProfit=0, cumSales=0, adSpend=0, lostTotal=0, negWeeks=0, turnover=0, restructured=0, lateWeeks=0;
     let peakCash=startCash, maxDD=0, minCash=startCash, minRunway=999, freeSum=0;
     let bankrupt=false, survived=W, last=null;
-    const log=[], actUse={};
+    const log=[], actUse={}, autoBought=[];
 
     for(let w=1; w<=W; w++){
       s.week=w;
@@ -5348,17 +5530,18 @@ const Sim = {
 
       const d=P.play(s,w,info)||{};
       // 採用（W17解放）— 給与2週ぶんの現金がなければ雇えない
-      if(d.hire && w>=17) d.hire.forEach(id=>{ const st=STAFF.find(x=>x.id===id);
+      if(d.hire && w>=unlockOf("recruit")) d.hire.forEach(id=>{ const st=STAFF.find(x=>x.id===id);
         const has=(s.staff||[]).some(e=>(typeof e==="string"?e:e.id)===id);
         if(st && !has && s.cash>st.salary*2) s.staff.push({id, weeks:1, motivation:85}); });
-      // 自動化（W21解放）
-      if(d.buy && w>=21) d.buy.forEach(id=>{ const a=AUTOMATIONS.find(x=>x.id===id);
+      // 自動化（解放週以降）
+      if(d.buy && w>=autoUnlockWeek()) d.buy.forEach(id=>{ const a=AUTOMATIONS.find(x=>x.id===id);
         if(a && !s.autos.includes(id) && s.cash>a.cost*1.05){
           s.cash-=a.cost; s.autos.push(id);
+          autoBought.push({id, w});
           s.systemLevel=Economy.clamp(s.systemLevel+a.sys,0,100); } });
 
       // 解放週を守る＋40時間に収める（本番と同じ制約）
-      const acts=(d.actions||[]).filter(a=>ACTIONS[a] && w>=ACTIONS[a].unlockWeek)
+      const acts=(d.actions||[]).filter(a=>ACTIONS[a] && w>=unlockOf(a))
                                 .filter((a,i,ar)=>ar.indexOf(a)===i);
       const plan={ produce:Math.max(0,Math.min(4,d.produce||1)),
         price:Economy.clamp(Math.round(d.price||B.price), B.minP, B.maxP),
@@ -5413,9 +5596,11 @@ const Sim = {
       s.history.push({week:w,sales:r.sales,profit:r.opProfit,cash:s.cash,
                       customers:r.actual,conv:r.conversion,price:r.price});
       log.push({ w, regime:s.regime.id, price:plan.price, ad:plan.adBudget,
-        produce:plan.produce, acts:plan.actions.slice(),
+        produce:plan.produce, acts:plan.actions.slice(), hours:plan.hoursUsed,
         sales:r.sales, profit:Math.round(r.opProfit), net:Math.round(net),
         cust:r.actual, lost:r.lost, bn:r.bottleneck.code,
+        staff:(s.staff||[]).length, autos:(s.autos||[]).length,
+        sat:Math.round(s.satisfaction), brand:Math.round(s.brand), sys:Math.round(s.systemLevel),
         cpc:+(ctx.cpcMult||1).toFixed(2), refP:+(ctx.marketPriceMult||1).toFixed(3) });
       last=r;
     }
@@ -5439,7 +5624,7 @@ const Sim = {
       lateWeeks, bankTrust:Math.round(Finance.trust(s)), loanTotal:s.loanTotal||0,
       financeChoice:s.financeChoice,
       avgFree:+(freeSum/Math.max(1,log.length)).toFixed(1),
-      staff:s.staff.length, autos:s.autos.length,
+      staff:s.staff.length, autos:s.autos.length, autoBought,
       sat:Math.round(s.satisfaction), brand:Math.round(s.brand),
       system:Math.round(s.systemLevel), actUse, log, states };
   },
@@ -5453,8 +5638,9 @@ const Sim = {
     const n=opt.seeds||100;
     const seeds=[]; for(let i=0;i<n;i++) seeds.push(10007+i*7919);   // 全難易度で同一
     const runs=[];
+    const runWeeks = opt.weeks || (CONFIG.mode==="lite" ? totalWeeks() : null);
     diffs.forEach(D=> personas.forEach(P=> biz.forEach(B=> seeds.forEach(sd=>{
-      const r=this.runOne(B,P,D,sd); delete r.log; delete r.states; runs.push(r);
+      const r=this.runOne(B,P,D,sd, runWeeks ? {weeks:runWeeks} : undefined); delete r.log; delete r.states; runs.push(r);
     }))));
     return { runs, seeds:seeds.length, total:runs.length,
              config:{biz, personas, difficulties:diffs} };
@@ -5484,7 +5670,7 @@ const Metrics = {
     for(let t=0;t<trials;t++){
       const s=this.clone(state);
       setSeed(90001 + t*131);
-      if(hireId && s.week>=17){ const st=STAFF.find(x=>x.id===hireId);
+      if(hireId && s.week>=unlockOf("recruit")){ const st=STAFF.find(x=>x.id===hireId);
         const has=(s.staff||[]).some(e=>(typeof e==="string"?e:e.id)===hireId);
         if(st && !has && s.cash>st.salary*2) s.staff.push({id:hireId, weeks:1, motivation:85}); }
       let profit=0;
@@ -5492,7 +5678,7 @@ const Metrics = {
         Difficulty.tick(s);
         const ctx=Difficulty.ctx(s), B=BUSINESSES[s.bizId];
         const p=mkPlan(s,B,h)||{};
-        p.actions=(p.actions||[]).filter(a=>ACTIONS[a] && s.week>=ACTIONS[a].unlockWeek);
+        p.actions=(p.actions||[]).filter(a=>ACTIONS[a] && s.week>=unlockOf(a));
         p.produce=Math.max(0,Math.min(4,p.produce||1));
         p.price=Economy.clamp(Math.round(p.price||B.price), B.minP, B.maxP);
         p.adBudget=Math.max(0, Math.min(p.adBudget||0, Math.max(0,s.cash)));
@@ -5820,6 +6006,1121 @@ const BalanceReport = {
   },
 };
 
+/* ========================= 診断エンジン（5軸スコアラー） =========================
+   Sim.runOne().log と PlayLog.weeks は形が違う。アダプタで正規化し、score() だけが本体。
+   正規化形: { bizId, weeks:[{w,price,ad,produce,acts,lost,bn,sat,staff,autos}], final:{staff,autos,sat,brand,sys} } */
+/* μ / min(p2) / max(p98) は 12ペルソナ×5事業×20シード×12週（Lite）の raw 実測（2026-08-14 STEP6.5）
+   6-0b: OFFENSE の負側下限は 0。PRICE/CRAFT/SYSTEM は p2=min（負 raw 対応）。
+   DISCIPLINE の μ は hit率の p50（決め打ち 0.5 は廃止）。 */
+/* 6.6 実測（14ペルソナ × 5事業 × 20シード = 1400ラン、12週Lite）。
+   mu は中央値（外れ値に強い）、max は p98。min は軸ごとに意味を考えて決める：
+   - PRICE   … 0 は「無料で配った」で起こらない。実測 p2 を使う
+   - SYSTEM  … 現場作業を引くので raw 自体が負。実測 p2 を使う（mu<0 で自動的に min 参照）
+   - OFFENSE / CRAFT / DISCIPLINE … 0＝「一切やっていない」に意味があるので 0 を下限にする
+     ※CRAFT で p2 を使うと負側スパンが正側の 1/12 になり、
+       「品質に手を出していないだけ」で −100 に張り付いた（回転型の誤診3件の原因） */
+const DIAG_NORM = {
+  PRICE:      { mu: 1.0300, min: 0.6650, max: 1.2167 },
+  OFFENSE:    { mu: 0.0458, min: 0.0000, max: 0.3244 },
+  CRAFT:      { mu: 0.1050, min: 0.0000, max: 0.5000 },
+  SYSTEM:     { mu: -0.0600, min: -0.2400, max: 0.2500 },
+  DISCIPLINE: { mu: 0.9091, min: 0.0000, max: 1.0000 },
+};
+/* STEP6.5: CRAFTにproduce / SYSTEMにownWork / DISCIPLINE.scale廃止 */
+const DIAG_WEIGHTS = {
+  OFFENSE: { ad:0.65, sales:0.30, sns:0.05 },
+  /* 6.6: CRAFT から produce を撤去（SYSTEM の ownWork と二重計上だった）。
+     sat の比重を上げ、「品質に手を出していないだけ」で深く沈まないようにする。 */
+  CRAFT:   { improve:0.40, service:0.35, sat:0.25 },
+  /* 6.6: 採用は自動化1台(0.40/4=0.10)より軽くてはならない。staff を引き上げる。 */
+  SYSTEM:  { staff:0.30, auto:0.40, manual:0.12, early:0.06, ownWork:0.24 },
+};
+/* STEP7: タイプ体系を 12種 に確定。
+   軸から8つ ＋ バランス型 ＋ パターン型3つ。
+   OFFENSE−（内向き型）と DISCIPLINE−（勢い型）は主タイプから外した。
+   1200ランで一度も出ず、意味も温存型・迷走型に吸収されるため。
+   ※軸スコア自体は従来どおり全部計算して保持する（課題の抽出に使う）。
+     主タイプの候補から外すだけ。 */
+const DIAG_TYPES = {
+  PRICE:      { pos:"価値提示型", neg:"値引き逃避型" },
+  OFFENSE:    { pos:"突撃型",     neg:null },   // 負側は温存型が受ける
+  CRAFT:      { pos:"職人型",     neg:"回転型" },
+  SYSTEM:     { pos:"設計型",     neg:"プレイヤー型" },
+  DISCIPLINE: { pos:"戦略型",     neg:null },   // 負側は迷走型が受ける
+  BALANCED:   "バランス型",
+  /* パターン型：5軸は「どこに立っているか」を測る。この3つは「どう動いたか」を測る。
+     経営の失敗はたいてい 動かない・定まらない・続かない のどれか。 */
+  HOARD:      "温存型",   // 動かない
+  DRIFT:      "迷走型",   // 定まらない
+  FADE:       "息切れ型", // 続かない
+};
+/* STEP7: パターン判定の閾値。実測で決める（§DIAG_PATTERN_CAL 参照） */
+const DIAG_PATTERN = {
+  /* 実測（12ペルソナ＋Bot × 5事業 × 10seed、中央値）に基づく：
+       priceCV  … random 0.262 / discount 0.128 / premium 0.077 / 他 0
+       actChurn … random 0.848 / growth 0.667 / paidgrowth 0.300 / 他 0.2以下
+       fadeRatio… 全ペルソナ 1.0以上（固定戦略なので息切れしない。実プレイ用の軸）
+     迷走は cv と churn の両方を満たす場合のみ。これで完全ランダムBotだけが該当し、
+     「値下げ一辺倒（discount）」や「打ち手は動くが価格は据え置き（growth）」は除外される。 */
+  hoardMaxAbs: 35,     // 温存型：4軸すべてこの絶対値未満（＝どこにも強く振れていない）
+  balancedMaxAbs: 25,  // バランス型：全軸これ未満（STEP7で実測調整）
+  fadeRatio:   0.60,   // 後半活動量 < 前半 × これ なら息切れ
+  driftPriceCV:0.12,   // 価格の変動係数がこれを超え
+  driftChurn:  0.55,   // かつ 行動セットの入れ替わり率もこれを超えたら迷走
+};
+const DIAG_AXES = ["PRICE","OFFENSE","CRAFT","SYSTEM","DISCIPLINE"];
+const DIAG_AXIS_LABEL_JP = { PRICE:"価格", OFFENSE:"攻め", CRAFT:"品質", SYSTEM:"仕組み", DISCIPLINE:"規律" };
+/* 6-0c: 同点時（|abs差|<1）の優先順位。積極的な選択を先に見る */
+const DIAG_AXIS_TIE = ["PRICE","SYSTEM","CRAFT","OFFENSE","DISCIPLINE"];
+
+/* 診断文の文面テンプレ（文言はここだけ触る。{placeholder} 埋め込み） */
+const DIAG_COPY = {
+  bnLabel: {
+    TRAFFIC: "知られていない", CONVERSION: "成約しない", MARGIN: "利益が薄い",
+    CAPACITY: "捌けない", CASH: "金が尽きる", TIME: "自分の時間がない",
+    PEOPLE: "自分が上限", CAPITAL: "現金を配分できていない"
+  },
+  actLabel: {
+    operate:"仕込み", service:"接客強化", sns:"SNS投稿", sales:"営業",
+    improve:"商品改善", account:"経理", research:"市場調査",
+    recruit:"採用活動", manual:"マニュアル作成"
+  },
+  styleHead: "① あなたの経営スタイル：{main} × {sub}",
+  styleHeadSolo: "① あなたの経営スタイル：{main}",
+  challengeHead: "② 現在の課題：{challenge}",
+  nextHead: "③ 次の一歩：{action}",
+  evidencePrefix: "　根拠：",
+  challengeName: {
+    PRICE_pos: "量が取れていない（高くは売れているが広がらない）",
+    PRICE_neg: "価格から逃げている（迷うと値を下げる）",
+    OFFENSE_pos: "攻めすぎて中身が追いついていない",
+    OFFENSE_neg: "良いものを作って待っている（外に出ていない）",
+    CRAFT_pos: "質に偏り、回転と広がりが弱い",
+    CRAFT_neg: "量とスピード優先で、質が後回し",
+    SYSTEM_pos: "仕組みに寄せすぎて、現場感覚が薄い",
+    SYSTEM_neg: "全部自分でやっている（あなたが上限）",
+    DISCIPLINE_pos: "規律はあるが、決断の速さが落ちている",
+    DISCIPLINE_neg: "詰まりを見ずに手を打っている",
+    BALANCED: "尖りがない（どれも中途半端）",
+    /* STEP7 パターン型の課題。軸の位置ではなく「動き方」を指摘する */
+    HOARD: "動いていない（減らないが、増えもしない）",
+    DRIFT: "手が定まっていない（毎週やり方が変わる）",
+    FADE:  "続いていない（前半にやったことを後半でやめた）"
+  },
+  nextAction: {
+    PRICE_pos: "相場より高い値段を維持したまま、W{lostW}の取りこぼしを減らすため供給か導線を1つ増やす",
+    PRICE_neg: "次に値下げしたくなったら、下げる前に『この値段で買ってもらう理由』を1行書いてから決める",
+    OFFENSE_pos: "広告・営業を止めるのではなく、成約と供給が追いついているか数字で確認してから出す",
+    OFFENSE_neg: "来週はSNSか営業のどちらかを必ず1回入れる（今ランでは未実施のほうを優先）",
+    CRAFT_pos: "改善を1週休み、その時間を営業か供給に回して『質が売上に変わったか』を見る",
+    CRAFT_neg: "来週は商品改善か接客強化を入れ、値下げや増産の前に『選ばれる理由』を足す",
+    SYSTEM_pos: "新しい仕組みを足す前に、既存の自動化・仲間が今週の詰まりを解いているか確認する",
+    SYSTEM_neg: "採用かマニュアルか自動化のうち、解放済みで未着手のものを来週1つだけ入れる",
+    DISCIPLINE_pos: "今の勝ちパターンを1つ言語化し、同じ手を機械的に繰り返さない週を作る",
+    DISCIPLINE_neg: "画面の詰まり表示を見てから手を選ぶ。詰まりと無関係な手は来週は禁止",
+    BALANCED: "次の4週は1つの軸だけ尖らせる（価格・攻め・質・仕組み・規律から1つ）",
+    /* STEP7: パターン型は「何を足すか」より「どう動き方を変えるか」を出す */
+    HOARD: "来週、金を使う手を1つだけ選んで実行する。広告でも採用でも自動化でもいい。守り続けても現金は増えない",
+    DRIFT: "値段と、毎週必ずやる行動を1つ決めて、4週間は変えない。変えないと何が効いたか分からない",
+    FADE:  "後半に落とした手を1つ選び、来週から4週続ける。認知も品質も、積み上がる前にやめると消える"
+  },
+  cite: {
+    /* STEP7 パターン型の根拠。軸の平均ではなく「週ごとの動き」から作る。
+       他の cite と同じく、該当する事実が無ければ出さない（一般論は書かない）。 */
+    hoardNoSpend: "{n}週間、広告費も採用も自動化も一度もありませんでした",
+    /* 現金は「増えた／横ばい」で文を分ける。
+       温存型でも現金は増えうる（投資しないので当然）。増えているのに
+       「変わっていません」と書くと事実と食い違い、診断全体の信用が飛ぶ。 */
+    hoardCashFlat: "現金は{cash}。12週かけて、ほとんど動いていません",
+    hoardCashUp:   "現金は{cash}まで増えました。ただし、その間に事業へ投じたものはありません",
+    driftPrice: "値段を{cuts}回変えています（最も高い週と安い週で{gap}の差）",
+    driftActs: "打ち手が毎週入れ替わっています（{n}週中{k}週で前週と別の手）",
+    fadeHalf: "前半{h}週の活動量に対し、後半は{pct}%まで落ちています",
+    fadeAdStop: "広告はW{w}を最後に止めています",
+    bnMiss: "W{w}は『{bn}』が原因でした。翌週あなたが選んだのは{move}です",
+    bnMissMany: "詰まりと無関係な手を{n}回打っています（例: W{w}は『{bn}』→翌週は{move}）",
+    bnHit: "W{w}の『{bn}』に対し、翌週は{move}で応じています",
+    priceNeverCut: "{n}週で一度も値下げしませんでした（平均は相場の{pct}%）",
+    priceCuts: "{n}週のうち{cuts}回値下げしました。平均単価は相場の{pct}%です",
+    priceHigh: "平均単価は相場の{pct}%でした",
+    priceLow: "平均単価は相場の{pct}%まで下げています",
+    lostMax: "W{w}で{lost}人を取り逃しました",
+    cashMin: "純資産が最も薄いとき {cash} でした",
+    unusedAct: "{n}週間、一度も{act}をしませんでした",
+    adHeavy: "広告に累計 {ad} を投じました（週あたり平均 {adAvg}）",
+    adNever: "{n}週間、広告費は一度も使いませんでした",
+    hireFirst: "W{w}で初めて人を雇いました（最終 {staff}人）",
+    neverHire: "{n}週間、一度も採用しませんでした",
+    autoFirst: "W{w}で初めて自動化を入れました（最終 {autos}件）",
+    neverAuto: "{n}週間、自動化は一度も入れていません",
+    manualUsed: "マニュアル作成を{n}週行いました",
+    serviceWeeks: "{n}週中{k}週、接客に力を入れました",
+    salesWeeks: "営業したのは{n}週中{k}週です",
+    improveWeeks: "商品改善をしたのは{n}週中{k}週です"
+  }
+};
+
+const Diagnose = {
+  clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); },
+  mean(arr){ return arr.length ? arr.reduce((a,x)=>a+x,0)/arr.length : 0; },
+
+  /* ===== STEP7 パターン型の判定 =====
+     5軸は「平均」しか見ていない。平均では見えない失敗が3つある。
+     判定は軸スコアより先に行い、該当すれば主タイプを上書きする。
+     優先順は 温存 → 息切れ → 迷走（先勝ち）。 */
+
+  /* 1週ぶんの活動量。息切れの判定に使う */
+  activityOf(w){
+    return ((w.ad||0)>0 ? 1 : 0) + ((w.acts||[]).length) + ((w.produce||0)/2);
+  },
+
+  patternMetrics(weeks, final){
+    const N=weeks.length;
+    if(!N) return null;
+    // ① 何もしていない度
+    const totalAd=weeks.reduce((a,w)=>a+(w.ad||0),0);
+    const noInvest = totalAd===0 && (final.staff||0)===0 && (final.autos||0)===0;
+    // ② 前半 / 後半の活動量
+    const h=Math.floor(N/2);
+    const first=this.mean(weeks.slice(0,h).map(w=>this.activityOf(w)));
+    const second=this.mean(weeks.slice(h).map(w=>this.activityOf(w)));
+    const fadeRatio = first>0 ? second/first : 1;
+    // ③ 価格のブレ（変動係数）
+    const prices=weeks.map(w=>w.price||0);
+    const pm=this.mean(prices);
+    const pv=this.mean(prices.map(p=>(p-pm)*(p-pm)));
+    const priceCV = pm>0 ? Math.sqrt(pv)/pm : 0;
+    // ④ 行動セットの入れ替わり率（週ごとの対称差 ÷ 合併）
+    let churn=0, pairs=0;
+    for(let i=1;i<N;i++){
+      const a=new Set(weeks[i-1].acts||[]), b=new Set(weeks[i].acts||[]);
+      const uni=new Set([...a,...b]);
+      if(!uni.size) continue;
+      let diff=0; uni.forEach(x=>{ if(a.has(x)!==b.has(x)) diff++; });
+      churn+=diff/uni.size; pairs++;
+    }
+    const actChurn = pairs? churn/pairs : 0;
+    return { noInvest, fadeRatio:+fadeRatio.toFixed(3), priceCV:+priceCV.toFixed(4),
+             actChurn:+actChurn.toFixed(3), firstHalf:+first.toFixed(2), secondHalf:+second.toFixed(2) };
+  },
+
+  patternType(m, axes){
+    if(!m) return null;
+    const T=DIAG_PATTERN;
+    /* ① 温存型：投資ゼロ、かつ どの軸にも強く振れていない。
+       「全軸が負」では判定できない。理由が2つある：
+       a) 何もしないランは DISCIPLINE が +100 に出る。詰まりが CASH のとき
+          「投資しない」が正解手として hit 判定されるため（実際それは正しい行動）。
+          よって規律は温存型の判定から外す。
+       b) しかし残り4軸が負なだけだと discount（値引きで攻めている）まで拾ってしまう。
+       両者の違いは「強く振れた軸があるか」。値下げは −100 まで振れる明確な意思決定で、
+       温存型は何も決めていないので、どの軸も中央付近に留まる。 */
+    const decisive=["PRICE","OFFENSE","CRAFT","SYSTEM"];
+    if(m.noInvest && decisive.every(k=>Math.abs(axes[k])<T.hoardMaxAbs)) return DIAG_TYPES.HOARD;
+    // ② 息切れ型：前半にやったことを後半でやめた
+    if(m.fadeRatio < T.fadeRatio) return DIAG_TYPES.FADE;
+    // ③ 迷走型：値段も打ち手も毎週変わる
+    if(m.priceCV > T.driftPriceCV && m.actChurn > T.driftChurn) return DIAG_TYPES.DRIFT;
+    return null;
+  },
+
+  /* 6-0b/6.5: 正側は p98。
+     OFFENSE はゼロ膨張 → 負側 0。
+     PRICE は倍率 → p2。
+     CRAFT も品質ゼロ付近が密集し produce で僅かに沈むだけなので負側 0（p2だと無品質勢が−100張り付き）。
+     SYSTEM は ownWork で負に振れる → p2。 */
+  axisScore(raw, key){
+    const n=DIAG_NORM[key]; if(!n || n.mu==null) return 0;
+    if(raw >= n.mu){
+      const span=Math.max(1e-9, (n.max!=null?n.max:n.mu) - n.mu);
+      return this.clamp((raw - n.mu) / span * 100, 0, 100);
+    }
+    /* 6.6: CRAFT を useMin から外した。実測 p2 だと負側スパンが正側の 1/12 になり、
+       品質行動をしていないだけのランが軒並み −100 に張り付いた。下限は 0 が正しい。 */
+    const useMin = key==="PRICE" || key==="SYSTEM" || (n.min!=null && n.mu < 0);
+    const floor = (useMin && n.min!=null) ? n.min : 0;
+    const span=Math.max(1e-9, n.mu - floor);
+    return this.clamp((raw - n.mu) / span * 100, -100, 0);
+  },
+  zScore(raw, key){ return this.axisScore(raw, key); },
+  /* 6-0c: |abs| 差が 1 未満なら同点 → DIAG_AXIS_TIE 順 */
+  rankAxes(axes){
+    const order=DIAG_AXIS_TIE;
+    return DIAG_AXES.slice().sort((a,b)=>{
+      const da=Math.abs(axes[a]||0), db=Math.abs(axes[b]||0);
+      if(Math.abs(da-db)<1.0) return order.indexOf(a)-order.indexOf(b);
+      return db-da;
+    });
+  },
+  /* STEP7: OFFENSE− / DISCIPLINE− は neg が null（主タイプから外した軸）。
+     課題文などで名前が必要になった場合に落ちないよう、軸名の記述で代替する。 */
+  typeName(axis, score){
+    const t=DIAG_TYPES[axis]; if(!t) return axis;
+    const nm = score>=0 ? t.pos : t.neg;
+    if(nm) return nm;
+    return score>=0 ? (DIAG_AXIS_LABEL_JP[axis]+"が強い") : (DIAG_AXIS_LABEL_JP[axis]+"が弱い");
+  },
+
+  /* ---- アダプタ：Sim.runOne の戻り値 → 正規化 ---- */
+  normalizeSim(run){
+    if(!run || !run.log) return null;
+    const weeks=run.log.map(x=>({
+      w:x.w, price:x.price, ad:x.ad||0, produce:x.produce||0,
+      acts:(x.acts||[]).slice(), lost:x.lost||0, bn:x.bn||"NONE",
+      sat:x.sat!=null?x.sat:(run.sat||0),
+      staff:x.staff!=null?x.staff:0, autos:x.autos!=null?x.autos:0,
+      sales:x.sales!=null?x.sales:0, hours:x.hours!=null?x.hours:0,
+      cash: x.cash!=null?x.cash:(x.net!=null?x.net:null),
+      net: x.net!=null?x.net:null
+    }));
+    return {
+      bizId: run.biz,
+      weeks,
+      final: {
+        staff: run.staff||0, autos: run.autos||0,
+        sat: run.sat||0, brand: run.brand||0, sys: run.system||0
+      }
+    };
+  },
+
+  /* ---- アダプタ：PlayLog の1ラン → 正規化 ---- */
+  normalizePlayLog(run){
+    if(!run || !run.weeks) return null;
+    const weeks=run.weeks.map(x=>({
+      w:x.w, price:x.price, ad:x.ad||0, produce:x.produce||0,
+      acts:(x.acts||[]).slice(), lost:x.lost||0, bn:x.bn||"NONE",
+      sat:x.sat||0, staff:x.staff||0, autos:x.autos||0,
+      sales:x.sales!=null?x.sales:0, hours:x.hours!=null?x.hours:0,
+      cash:x.cash!=null?x.cash:null, net:x.cash!=null?x.cash:null
+    }));
+    const o=run.outcome||{}, lastW=run.weeks[run.weeks.length-1]||{};
+    return {
+      bizId: run.biz,
+      weeks,
+      final: {
+        staff: o.staff!=null?o.staff:(lastW.staff||0),
+        autos: o.autos!=null?o.autos:(lastW.autos||0),
+        sat: o.sat!=null?o.sat:(lastW.sat||0),
+        brand: o.brand!=null?o.brand:(lastW.brand||0),
+        sys: o.sys!=null?o.sys:(lastW.sys||0)
+      }
+    };
+  },
+
+  /* bn に効く翌週の手（指示書どおり）。hit=true / miss=true / skip=NONE */
+  bnHit(bn, prev, next){
+    if(!bn || bn==="NONE" || !next) return "skip";
+    const acts=next.acts||[];
+    const has=id=>acts.indexOf(id)>=0;
+    const hired=(next.staff||0)>(prev.staff||0);
+    const bought=(next.autos||0)>(prev.autos||0);
+    const priceUp=next.price>prev.price, priceDown=next.price<prev.price;
+    const produceUp=next.produce>prev.produce, produceDown=next.produce<prev.produce;
+    const adUp=(next.ad||0)>(prev.ad||0), adDown=(next.ad||0)<(prev.ad||0);
+    let ok=false;
+    if(bn==="TRAFFIC") ok = has("sns") || has("sales") || adUp;
+    else if(bn==="CONVERSION") ok = has("improve") || has("sales") || has("research");
+    else if(bn==="MARGIN"){
+      // 値下げは不正解。上げた／produce適正化（減らして薄利量を抑える）だけが正解
+      if(priceDown) ok=false;
+      else ok = priceUp || produceDown;
+    }
+    else if(bn==="CAPACITY") ok = produceUp || hired;
+    else if(bn==="CASH") ok = adDown || produceDown || (!hired && !bought);
+    else if(bn==="TIME") ok = hired || has("manual") || bought;
+    else if(bn==="PEOPLE") ok = hired || has("manual");
+    else if(bn==="CAPITAL") ok = bought || hired;
+    else return "skip";
+    return ok ? "hit" : "miss";
+  },
+
+  /* ---- スコアラー本体（ここだけが診断の計算をする） ---- */
+  score(normalized){
+    if(!normalized || !normalized.weeks || !normalized.weeks.length){
+      return { axes:{}, main:null, sub:null, weakest:null, raw:{}, error:"empty" };
+    }
+    const weeks=normalized.weeks, N=weeks.length, B=BUSINESSES[normalized.bizId];
+    const basePrice=(B&&B.price)||1;
+    const final=normalized.final||{};
+    const rate=act=> weeks.filter(w=>(w.acts||[]).indexOf(act)>=0).length / N;
+
+    // ① PRICE
+    const rawPRICE = this.mean(weeks.map(w=>w.price)) / basePrice;
+    // ② OFFENSE（6-3: 広告は売上比。事業価格依存をやめる）
+    const WO=DIAG_WEIGHTS.OFFENSE;
+    const sumAd=weeks.reduce((a,w)=>a+(w.ad||0),0);
+    const sumSales=weeks.reduce((a,w)=>a+(w.sales||0),0);
+    const adNorm = sumAd / Math.max(1, sumSales);
+    const rawOFFENSE = adNorm*WO.ad + rate("sales")*WO.sales + rate("sns")*WO.sns;
+    /* ③ CRAFT（6.6: produce を外した。量そのものは SYSTEM の ownWork で見る。
+       ここに置くと produce が CRAFT と SYSTEM の両方を押し下げる二重計上になり、
+       仕込みの多いペルソナが軒並み「回転型」に誤診された。 */
+    const WC=DIAG_WEIGHTS.CRAFT;
+    const rawCRAFT = rate("improve")*(WC.improve||0) + rate("service")*(WC.service||0)
+      + ((final.sat||0)/100)*(WC.sat||0);
+    // ④ SYSTEM（6.5-2: ownWork＝自分で現場に立つ。staff0/autos0でも区別する）
+    const WS=DIAG_WEIGHTS.SYSTEM;
+    const staffN = this.clamp((final.staff||0)/3, 0, 1);
+    const autoN  = this.clamp((final.autos||0)/4, 0, 1);
+    const manualRate = rate("manual");
+    /* 6.6: ownWork は「現場に立った時間」だけを数える。
+       総 hours を使うと、マニュアル作成(10h)や採用活動(8h)——つまり仕組み化そのもの——が
+       ownWork を押し上げ、SYSTEM を下げてしまう（仕組み化したのに仕組み化スコアが下がる）。
+       現場作業＝仕込み(operate×produce)と接客(service)のみ。 */
+    const OPH=(ACTIONS.operate&&ACTIONS.operate.hours)||10;
+    const SVH=(ACTIONS.service&&ACTIONS.service.hours)||10;
+    const fieldH = w => (w.produce||0)*OPH + (((w.acts||[]).indexOf("service")>=0)?SVH:0);
+    const ownWork = this.clamp(this.mean(weeks.map(fieldH)) / Math.max(1, CONFIG.baseHours), 0, 1);
+    let firstSys=null, firstUnlock=null;
+    for(let i=0;i<N;i++){
+      const w=weeks[i], prev=i>0?weeks[i-1]:{staff:0,autos:0};
+      const hired=(w.staff||0)>(prev.staff||0);
+      const bought=(w.autos||0)>(prev.autos||0);
+      if(hired || bought){
+        firstSys=w.w;
+        firstUnlock = hired ? unlockOf("recruit") : autoUnlockWeek();
+        if(hired && bought) firstUnlock=Math.min(unlockOf("recruit"), autoUnlockWeek());
+        break;
+      }
+    }
+    let early=0;
+    if(firstSys!=null){
+      const span=Math.max(1, N - (firstUnlock||1));
+      early=this.clamp(1 - (firstSys - (firstUnlock||1)) / span, 0, 1);
+    }
+    const rawSYSTEM = staffN*(WS.staff||0) + autoN*(WS.auto||0) + manualRate*(WS.manual||0)
+      + early*(WS.early||0) - ownWork*(WS.ownWork||0);
+
+    // ⑤ DISCIPLINE（6.5-1: hit率を他軸と同じ axisScore。scale廃止）
+    let hit=0, miss=0;
+    for(let i=0;i<N-1;i++){
+      const r=this.bnHit(weeks[i].bn, weeks[i], weeks[i+1]);
+      if(r==="hit") hit++; else if(r==="miss") miss++;
+    }
+    // 観測なしは「普通」扱い（決め打ち0.5だと μ=0.91 中心で −45 に崩れる）
+    const hitRate = (hit+miss)>0 ? hit/(hit+miss) : (DIAG_NORM.DISCIPLINE.mu||0.5);
+    const DISCIPLINE = this.axisScore(hitRate, "DISCIPLINE");
+
+    const raw={ PRICE:rawPRICE, OFFENSE:rawOFFENSE, CRAFT:rawCRAFT, SYSTEM:rawSYSTEM, DISCIPLINE:hitRate };
+    const axes={
+      PRICE: this.axisScore(rawPRICE, "PRICE"),
+      OFFENSE: this.axisScore(rawOFFENSE, "OFFENSE"),
+      CRAFT: this.axisScore(rawCRAFT, "CRAFT"),
+      SYSTEM: this.axisScore(rawSYSTEM, "SYSTEM"),
+      DISCIPLINE
+    };
+
+    /* タイプ判定（6-0c タイブレーク込み）
+       6.6 検証メモ：「首位と2位が僅差ならバランス型にする」案を実装して測ったが、
+       安定率が 78% → 73.7% に悪化したため不採用。
+       バランス型と本来のタイプの間で揺れるだけで、揺れの総量は減らなかった。
+       残る不安定は軸の定義ではなく、ペルソナが仕組み化を実行できるかが
+       資金しだいで変わることに起因する（automation の autos が事業ごとに 0〜2 と振れる）。 */
+    const ranked=this.rankAxes(axes);
+    const allSmall=DIAG_AXES.every(k=>Math.abs(axes[k])<DIAG_PATTERN.balancedMaxAbs);
+
+    /* STEP7: パターン型を先に判定する（軸より優先）。
+       該当しなければ従来どおり軸で決める。 */
+    const pat=this.patternMetrics(weeks, final);
+    const patType=this.patternType(pat, axes);
+
+    /* STEP7: OFFENSE− / DISCIPLINE− は主タイプの候補から外す（DIAG_TYPES の neg が null）。
+       候補に残る軸だけで順位を取り直す。全部外れたらバランス型。 */
+    const usable=ranked.filter(k=>{
+      const t=DIAG_TYPES[k];
+      return axes[k]>=0 ? !!(t&&t.pos) : !!(t&&t.neg);
+    });
+
+    let main, sub;
+    if(patType){
+      main={ axis:null, score:0, type:patType, pattern:true };
+      sub=usable.length ? { axis:usable[0], score:axes[usable[0]], type:this.typeName(usable[0], axes[usable[0]]) } : null;
+    } else if(allSmall || !usable.length){
+      main={ axis:null, score:0, type:DIAG_TYPES.BALANCED };
+      sub=null;
+    } else {
+      const a0=usable[0], a1=usable[1];
+      main={ axis:a0, score:axes[a0], type:this.typeName(a0, axes[a0]) };
+      sub=a1 ? { axis:a1, score:axes[a1], type:this.typeName(a1, axes[a1]) } : null;
+    }
+    const weakestAxis=DIAG_AXES.slice().sort((a,b)=>axes[a]-axes[b])[0];
+    const weakest={ axis:weakestAxis, score:axes[weakestAxis], type:this.typeName(weakestAxis, axes[weakestAxis]) };
+
+    return { axes, raw, main, sub, weakest, hit, miss, N, pattern:pat, patternType:patType };
+  },
+
+  fromSim(runResult){
+    const n=this.normalizeSim(runResult);
+    if(!n) return { axes:{}, main:null, sub:null, weakest:null, error:"no sim log" };
+    return this.score(n);
+  },
+  fromPlayLog(runId){
+    const db=PlayLog.load();
+    const run=(db.runs||[]).find(r=>r.id===runId);
+    if(!run) return { axes:{}, main:null, sub:null, weakest:null, error:"run not found" };
+    const n=this.normalizePlayLog(run);
+    return this.score(n);
+  },
+
+  /* ---- 診断文（STEP5）：ログ事実のみ引用。無い事実は出さない ---- */
+  fill(tpl, vars){
+    return String(tpl).replace(/\{(\w+)\}/g, (_,k)=> (vars[k]!=null?String(vars[k]):""));
+  },
+  yen(v){
+    const n=Math.round(v||0);
+    return "¥"+Math.abs(n).toLocaleString("ja-JP")+(n<0?"（不足）":"");
+  },
+  describeMove(prev, next){
+    if(!next) return "何もしなかった";
+    const parts=[];
+    if(next.price<prev.price) parts.push("値下げ");
+    else if(next.price>prev.price) parts.push("値上げ");
+    if((next.ad||0)>(prev.ad||0)) parts.push("広告増");
+    else if((next.ad||0)<(prev.ad||0) && (prev.ad||0)>0) parts.push("広告減");
+    if(next.produce>prev.produce) parts.push("供給増");
+    else if(next.produce<prev.produce) parts.push("供給減");
+    if((next.staff||0)>(prev.staff||0)) parts.push("採用");
+    if((next.autos||0)>(prev.autos||0)) parts.push("自動化購入");
+    (next.acts||[]).forEach(a=>{
+      const lab=DIAG_COPY.actLabel[a]||a;
+      if(parts.indexOf(lab)<0) parts.push(lab);
+    });
+    if(!parts.length){
+      if((next.acts||[]).length===0 && next.price===prev.price && next.produce===prev.produce && (next.ad||0)===(prev.ad||0))
+        return "特に手を変えなかった";
+      return "現状維持";
+    }
+    return parts.join("・");
+  },
+
+  /* bn×翌週。miss を最優先で返す。無ければ null */
+  citeBnMiss(weeks){
+    const misses=[];
+    for(let i=0;i<weeks.length-1;i++){
+      const bn=weeks[i].bn;
+      if(!bn || bn==="NONE") continue;
+      if(this.bnHit(bn, weeks[i], weeks[i+1])!=="miss") continue;
+      const label=DIAG_COPY.bnLabel[bn]||bn;
+      const move=this.describeMove(weeks[i], weeks[i+1]);
+      misses.push({ w:weeks[i].w, bn:label, move, code:bn });
+    }
+    if(!misses.length) return null;
+    const ex=misses[0];
+    if(misses.length===1)
+      return this.fill(DIAG_COPY.cite.bnMiss, { w:ex.w, bn:ex.bn, move:ex.move });
+    return this.fill(DIAG_COPY.cite.bnMissMany, { n:misses.length, w:ex.w, bn:ex.bn, move:ex.move });
+  },
+  citeBnHit(weeks){
+    for(let i=0;i<weeks.length-1;i++){
+      const bn=weeks[i].bn;
+      if(!bn || bn==="NONE") continue;
+      if(this.bnHit(bn, weeks[i], weeks[i+1])!=="hit") continue;
+      return this.fill(DIAG_COPY.cite.bnHit, {
+        w:weeks[i].w, bn:DIAG_COPY.bnLabel[bn]||bn,
+        move:this.describeMove(weeks[i], weeks[i+1])
+      });
+    }
+    return null;
+  },
+
+  /* ログから取れる事実だけを集める。取れない種類は入れない */
+  collectFacts(normalized){
+    const weeks=normalized.weeks||[], N=weeks.length, B=BUSINESSES[normalized.bizId];
+    const base=(B&&B.price)||1;
+    const facts={ bnMiss:null, bnHit:null, price:null, lost:null, cash:null,
+      unused:[], ad:null, hire:null, auto:null, manual:null, sales:null, improve:null };
+    facts.bnMiss=this.citeBnMiss(weeks);
+    facts.bnHit=this.citeBnHit(weeks);
+
+    let cuts=0;
+    for(let i=1;i<N;i++){ if(weeks[i].price<weeks[i-1].price) cuts++; }
+    const avgP=this.mean(weeks.map(w=>w.price));
+    const pct=Math.round(avgP/base*100);
+    if(cuts===0 && N>=2)
+      facts.price=this.fill(DIAG_COPY.cite.priceNeverCut, { n:N, pct });
+    else if(cuts>0)
+      facts.price=this.fill(DIAG_COPY.cite.priceCuts, { n:N, cuts, pct });
+    else if(pct>=110)
+      facts.price=this.fill(DIAG_COPY.cite.priceHigh, { pct });
+    else if(pct<=90)
+      facts.price=this.fill(DIAG_COPY.cite.priceLow, { pct });
+
+    let maxLost=-1, lostW=null;
+    weeks.forEach(w=>{ if((w.lost||0)>maxLost){ maxLost=w.lost||0; lostW=w.w; } });
+    if(maxLost>0) facts.lost=this.fill(DIAG_COPY.cite.lostMax, { w:lostW, lost:maxLost });
+
+    const cashVals=weeks.map(w=> w.cash!=null?w.cash:(w.net!=null?w.net:null)).filter(v=>v!=null);
+    if(cashVals.length){
+      const minC=Math.min(...cashVals);
+      facts.cash=this.fill(DIAG_COPY.cite.cashMin, { cash:this.yen(minC) });
+    }
+
+    ["sales","improve","service","recruit","manual","research"].forEach(act=>{
+      const used=weeks.some(w=>(w.acts||[]).indexOf(act)>=0);
+      if(!used) facts.unused.push(this.fill(DIAG_COPY.cite.unusedAct, {
+        n:N, act:DIAG_COPY.actLabel[act]||act
+      }));
+    });
+
+    const adSum=weeks.reduce((a,w)=>a+(w.ad||0),0);
+    if(adSum>0) facts.ad=this.fill(DIAG_COPY.cite.adHeavy, { ad:this.yen(adSum), adAvg:this.yen(adSum/N) });
+    else facts.ad=this.fill(DIAG_COPY.cite.adNever, { n:N });
+
+    let firstHire=null, firstAuto=null;
+    for(let i=0;i<N;i++){
+      const prev=i>0?weeks[i-1]:{staff:0,autos:0};
+      if(firstHire==null && (weeks[i].staff||0)>(prev.staff||0)) firstHire=weeks[i].w;
+      if(firstAuto==null && (weeks[i].autos||0)>(prev.autos||0)) firstAuto=weeks[i].w;
+    }
+    const final=normalized.final||{};
+    if(firstHire!=null) facts.hire=this.fill(DIAG_COPY.cite.hireFirst, { w:firstHire, staff:final.staff||0 });
+    else facts.hire=this.fill(DIAG_COPY.cite.neverHire, { n:N });
+    if(firstAuto!=null) facts.auto=this.fill(DIAG_COPY.cite.autoFirst, { w:firstAuto, autos:final.autos||0 });
+    else facts.auto=this.fill(DIAG_COPY.cite.neverAuto, { n:N });
+
+    const manualK=weeks.filter(w=>(w.acts||[]).indexOf("manual")>=0).length;
+    if(manualK>0) facts.manual=this.fill(DIAG_COPY.cite.manualUsed, { n:manualK });
+    const salesK=weeks.filter(w=>(w.acts||[]).indexOf("sales")>=0).length;
+    facts.sales=this.fill(DIAG_COPY.cite.salesWeeks, { n:N, k:salesK });
+    const improveK=weeks.filter(w=>(w.acts||[]).indexOf("improve")>=0).length;
+    if(improveK>0) facts.improve=this.fill(DIAG_COPY.cite.improveWeeks, { n:N, k:improveK });
+    else facts.improve=null;
+    const serviceK=weeks.filter(w=>(w.acts||[]).indexOf("service")>=0).length;
+    if(serviceK>0) facts.service=this.fill(DIAG_COPY.cite.serviceWeeks, { n:N, k:serviceK });
+    else facts.service=this.fill(DIAG_COPY.cite.unusedAct, { n:N, act:DIAG_COPY.actLabel.service });
+    facts._improveK=improveK; facts._serviceK=serviceK;
+    return facts;
+  },
+
+  /* スタイル根拠：主タイプを支える事実を最大2つ */
+  /* STEP7: パターン型の根拠文。週ごとの動きから作る。
+     軸の平均では現れないものなので、専用に組み立てる。
+     該当する事実が無ければ空を返す（一般論は書かない）。 */
+  patternEvidence(scored, normalized){
+    const t=scored.main&&scored.main.type;
+    const m=scored.pattern, weeks=normalized.weeks, N=weeks.length;
+    if(!m || !t) return [];
+    const out=[];
+    if(t===DIAG_TYPES.HOARD){
+      out.push(this.fill(DIAG_COPY.cite.hoardNoSpend, { n:N }));
+      const last=weeks[N-1], first=weeks[0];
+      if(last && last.cash!=null && first && first.cash!=null){
+        // 実際に増えたのか横ばいなのかを見てから書く（±15%を横ばいとみなす）
+        const ratio = first.cash>0 ? last.cash/first.cash : 1;
+        const tpl = ratio>1.15 ? DIAG_COPY.cite.hoardCashUp : DIAG_COPY.cite.hoardCashFlat;
+        out.push(this.fill(tpl, { cash:this.yen(last.cash) }));
+      }
+    } else if(t===DIAG_TYPES.DRIFT){
+      const prices=weeks.map(w=>w.price||0);
+      let changes=0;
+      for(let i=1;i<N;i++) if(prices[i]!==prices[i-1]) changes++;
+      const gap=Math.max.apply(null,prices)-Math.min.apply(null,prices);
+      if(changes>0) out.push(this.fill(DIAG_COPY.cite.driftPrice, { cuts:changes, gap:this.yen(gap) }));
+      let diffW=0;
+      for(let i=1;i<N;i++){
+        const a=(weeks[i-1].acts||[]).slice().sort().join(","), b=(weeks[i].acts||[]).slice().sort().join(",");
+        if(a!==b) diffW++;
+      }
+      if(diffW>0) out.push(this.fill(DIAG_COPY.cite.driftActs, { n:N, k:diffW }));
+    } else if(t===DIAG_TYPES.FADE){
+      const h=Math.floor(N/2);
+      out.push(this.fill(DIAG_COPY.cite.fadeHalf, { h, pct:Math.round((m.fadeRatio||0)*100) }));
+      let lastAd=null;
+      weeks.forEach(w=>{ if((w.ad||0)>0) lastAd=w.w; });
+      if(lastAd!=null && lastAd < weeks[N-1].w) out.push(this.fill(DIAG_COPY.cite.fadeAdStop, { w:lastAd }));
+    }
+    return out.filter(Boolean).slice(0,2);
+  },
+
+  styleEvidence(scored, facts){
+    const axis=scored.main&&scored.main.axis;
+    const sign=scored.main?Math.sign(scored.main.score||0):0;
+    const out=[];
+    const push=s=>{ if(s && out.indexOf(s)<0 && out.length<2) out.push(s); };
+    if(axis==="PRICE"){
+      push(facts.price);
+      if(sign<0) push(facts.lost);
+    } else if(axis==="OFFENSE"){
+      push(sign>0 ? facts.ad : (facts.unused.find(u=>u.indexOf("営業")>=0)||facts.ad));
+      /* 「攻めている」根拠に「営業は0週です」を出すと矛盾する。
+         やった事実だけを積極側の根拠に使う。 */
+      if(!(sign>0 && facts.sales && /0週/.test(facts.sales))) push(facts.sales);
+      if(sign<0) push(facts.unused.find(u=>u.indexOf("営業")>=0)||null);
+    } else if(axis==="CRAFT"){
+      if(sign>0){
+        push(facts.improve);
+        push(facts.service);
+      } else {
+        push(facts.service);
+        push(facts.unused.find(u=>u.indexOf("商品改善")>=0)||facts.unused.find(u=>u.indexOf("接客")>=0));
+      }
+    } else if(axis==="SYSTEM"){
+      push(sign>0 ? (facts.hire||facts.auto) : (facts.hire||facts.auto));
+      push(facts.manual);
+      if(sign<0){ push(facts.hire); push(facts.auto); }
+    } else if(axis==="DISCIPLINE"){
+      push(sign>0 ? facts.bnHit : facts.bnMiss);
+      push(facts.bnMiss);
+    } else {
+      // バランス型
+      push(facts.price); push(facts.bnMiss||facts.lost);
+    }
+    // 最低1つはログ事実を確保
+    if(!out.length){ push(facts.bnMiss); push(facts.lost); push(facts.price); push(facts.cash); }
+    return out.filter(Boolean).slice(0,2);
+  },
+
+  /* 課題根拠：bnミスを最優先 */
+  challengeEvidence(facts){
+    const out=[];
+    if(facts.bnMiss) out.push(facts.bnMiss);
+    if(facts.lost && out.length<2) out.push(facts.lost);
+    if(facts.cash && out.length<2) out.push(facts.cash);
+    if(!out.length && facts.unused[0]) out.push(facts.unused[0]);
+    if(!out.length && facts.price) out.push(facts.price);
+    return out.slice(0,2);
+  },
+
+  challengeOf(scored){
+    const axes=scored.axes||{};
+    /* STEP7: パターン型なら、課題も動き方で返す。
+       軸の最低値を出しても「動いていない人」には響かない。 */
+    const pt=scored.main&&scored.main.pattern ? scored.main.type : null;
+    if(pt===DIAG_TYPES.HOARD) return { key:"HOARD", label:DIAG_COPY.challengeName.HOARD, axis:null };
+    if(pt===DIAG_TYPES.DRIFT) return { key:"DRIFT", label:DIAG_COPY.challengeName.DRIFT, axis:null };
+    if(pt===DIAG_TYPES.FADE)  return { key:"FADE",  label:DIAG_COPY.challengeName.FADE,  axis:null };
+    const lowest=DIAG_AXES.slice().sort((a,b)=>(axes[a]||0)-(axes[b]||0))[0];
+    // DISCIPLINE が全軸で最低かつマイナスならそちら。
+    // さもなくば主軸の振れ側の課題（PRICE+→量が取れていない / PRICE−→価格から逃げている）
+    if(lowest==="DISCIPLINE" && (axes.DISCIPLINE||0)<0){
+      return { key:"DISCIPLINE_neg", label:DIAG_COPY.challengeName.DISCIPLINE_neg, axis:"DISCIPLINE" };
+    }
+    if(!scored.main || !scored.main.axis){
+      return { key:"BALANCED", label:DIAG_COPY.challengeName.BALANCED, axis:null };
+    }
+    const ax=scored.main.axis;
+    const side=(scored.main.score||0)>=0 ? "pos" : "neg";
+    const key=ax+"_"+side;
+    return { key, label:DIAG_COPY.challengeName[key]||key, axis:ax };
+  },
+
+  nextActionOf(challenge, facts, weeks){
+    let tpl=DIAG_COPY.nextAction[challenge.key]||DIAG_COPY.nextAction.BALANCED;
+    let lostW=null, maxL=-1;
+    (weeks||[]).forEach(w=>{ if((w.lost||0)>maxL){ maxL=w.lost||0; lostW=w.w; } });
+    return this.fill(tpl, { lostW: lostW!=null?lostW:"—" });
+  },
+
+  /* 正規化データ → 3点セット文章 */
+  buildReport(normalized){
+    if(!normalized || !normalized.weeks || !normalized.weeks.length)
+      return { text:"", error:"empty", sections:null };
+    const scored=this.score(normalized);
+    const facts=this.collectFacts(normalized);
+    /* STEP7: パターン型は専用の根拠を先に使う。足りなければ軸ベースで補う。 */
+    const patEv=this.patternEvidence(scored, normalized);
+    const styleEv=patEv.length ? patEv : this.styleEvidence(scored, facts);
+    const chal=this.challengeOf(scored);
+    const chalEv=this.challengeEvidence(facts);
+    // 一般論禁止：根拠が1つも無ければエラー扱い（呼び出し側で分かるように）
+    if(!styleEv.length && !chalEv.length)
+      return { text:"", error:"no_log_facts", scored, facts };
+
+    const main=scored.main?scored.main.type:DIAG_TYPES.BALANCED;
+    const sub=scored.sub?scored.sub.type:null;
+    const L=[];
+    L.push(sub
+      ? this.fill(DIAG_COPY.styleHead, { main, sub })
+      : this.fill(DIAG_COPY.styleHeadSolo, { main }));
+    styleEv.forEach(e=> L.push(DIAG_COPY.evidencePrefix+e));
+
+    L.push("");
+    L.push(this.fill(DIAG_COPY.challengeHead, { challenge:chal.label }));
+    chalEv.forEach(e=> L.push(DIAG_COPY.evidencePrefix+e));
+
+    L.push("");
+    const action=this.nextActionOf(chal, facts, normalized.weeks);
+    L.push(this.fill(DIAG_COPY.nextHead, { action }));
+
+    return {
+      text:L.join("\n"),
+      scored, facts, challenge:chal,
+      evidence:{ style:styleEv, challenge:chalEv },
+      sections:{ style:main+(sub?" × "+sub:""), challenge:chal.label, next:action }
+    };
+  },
+
+  /* PlayLog の runId から診断文（公開API） */
+  report(runId){
+    const db=PlayLog.load();
+    const run=(db.runs||[]).find(r=>r.id===runId);
+    if(!run) return { text:"", error:"run not found" };
+    const n=this.normalizePlayLog(run);
+    return this.buildReport(n);
+  },
+  /* Sim.runOne 結果から診断文（検証・デモ用） */
+  reportSim(runResult){
+    const n=this.normalizeSim(runResult);
+    if(!n) return { text:"", error:"no sim log" };
+    return this.buildReport(n);
+  },
+};
+
+/* ========================= 診断検証（STEP3） =========================
+   目的は「合格」ではなく「測れる」。期待表との照合・安定率・分布を数字で出す。 */
+const DIAG_EXPECT = {
+  discount:    { type:"値引き逃避型", axis:"PRICE",      sign:-1 },
+  premium:     { type:"価値提示型",   axis:"PRICE",      sign: 1 },
+  adheavy:     { type:"突撃型",       axis:"OFFENSE",    sign: 1 },
+  paidgrowth:  { type:"突撃型",       axis:"OFFENSE",    sign: 1 },
+  customer:    { type:"職人型",       axis:"CRAFT",      sign: 1 },
+  lean:        { type:"プレイヤー型", axis:"SYSTEM",     sign:-1 },
+  automation:  { type:"設計型",       axis:"SYSTEM",     sign: 1 },
+  earlyhire:   { type:"設計型",       axis:"SYSTEM",     sign: 1 },
+  scaleup:     { type:"戦略型",       axis:"DISCIPLINE", sign: 1 },
+  growth:      { type:"突撃型",       axis:"OFFENSE",    sign: 1 },
+  /* STEP7（承認済みの変更）: 「内向き型」は主タイプから削除し、温存型が受ける。
+     cashkeep は投資も採用も自動化もしない＝「動いていない」。
+     これは合格させるための書き換えではなく、体系の欠落を埋めるもの。 */
+  cashkeep:    { type:"温存型",       axis:null,         sign: 0, pattern:true },
+  balanced:    { type:"バランス型",   axis:null,         sign: 0 },
+};
+const DIAG_EXPECT_KEYS = Object.keys(DIAG_EXPECT);
+
+const DiagValidate = {
+  median(arr){
+    if(!arr.length) return 0;
+    const s=arr.slice().sort((a,b)=>a-b);
+    const m=Math.floor(s.length/2);
+    return s.length%2 ? s[m] : (s[m-1]+s[m])/2;
+  },
+  mode(arr){
+    const c={}; arr.forEach(x=>{ c[x]=(c[x]||0)+1; });
+    let best=null, n=0;
+    Object.keys(c).forEach(k=>{ if(c[k]>n){ n=c[k]; best=k; } });
+    return { value:best, count:n, total:arr.length, rate: arr.length? n/arr.length : 0 };
+  },
+  axisMatch(diag, exp){
+    if(!diag || !diag.axes) return false;
+    /* STEP7: パターン型（温存/迷走/息切れ）は軸で決まらないので、
+       主タイプが期待どおりかで判定する。 */
+    if(exp.pattern) return !!(diag.main && diag.main.type===exp.type);
+    if(exp.axis==null){
+      // バランス型：全軸が閾値未満
+      return DIAG_AXES.every(k=> Math.abs(diag.axes[k]||0) < DIAG_PATTERN.balancedMaxAbs);
+    }
+    const ranked=Diagnose.rankAxes(diag.axes);
+    const top=ranked[0];
+    if(top!==exp.axis) return false;
+    const v=diag.axes[top]||0;
+    return exp.sign>0 ? v>=0 : v<=0;
+  },
+
+  build(opt){
+    opt=opt||{};
+    const seedsN=opt.seeds!=null?opt.seeds:20;
+    const weeks=opt.weeks!=null?opt.weeks:CONFIG.lite.totalWeeks;
+    const bizList=(opt.biz==="all"||opt.biz==null) ? Object.keys(BUSINESSES)
+                 : (Array.isArray(opt.biz)?opt.biz:[opt.biz]);
+    const personas=opt.personas||DIAG_EXPECT_KEYS.slice();
+    const difficulty=opt.difficulty||"NORMAL";
+    const seeds=[]; for(let i=0;i<seedsN;i++) seeds.push(10007+i*7919);
+
+    // Lite週数の検証は Lite 解放が前提（SYSTEM 軸が測れる）。終了後に戻す。
+    const prevMode=CONFIG.mode;
+    if(weeks<=CONFIG.lite.totalWeeks) CONFIG.mode="lite";
+
+    const rows=[]; // {persona,biz,seed, axes, raw, mainType, mainAxis, axisOk, typeOk, hitRate}
+    const hitRates=[];
+    try{
+      personas.forEach(P=>{
+        bizList.forEach(B=>{
+          seeds.forEach(sd=>{
+            /* 6.6: mode:"lite" を必ず渡す。これが無いと解放週がフル版(17/20/21)のままになり、
+               12週の検証で採用・マニュアル・自動化が一度も発動しない。 */
+            const run=Sim.runOne(B, P, difficulty, sd, {weeks, mode:"lite"});
+            const d=Diagnose.fromSim(run);
+            const exp=DIAG_EXPECT[P];
+            const mainType=(d.main&&d.main.type)||"—";
+            const mainAxis=(d.main&&d.main.axis)||null;
+            const hm=(d.hit||0)+(d.miss||0);
+            const hitRate=hm>0 ? (d.hit||0)/hm : null;
+            if(hitRate!=null) hitRates.push(hitRate);
+            rows.push({
+              persona:P, biz:B, seed:sd,
+              axes:d.axes, raw:d.raw,
+              mainType, mainAxis, mainScore:d.main?d.main.score:0,
+              typeOk: !!(exp && mainType===exp.type),
+              axisOk: this.axisMatch(d, exp||{}),
+              hitRate
+            });
+          });
+        });
+      });
+    } finally {
+      CONFIG.mode=prevMode;
+    }
+
+    // ペルソナ別集計
+    const byP={};
+    personas.forEach(P=>{
+      const rs=rows.filter(r=>r.persona===P);
+      const axesMed={};
+      DIAG_AXES.forEach(k=>{ axesMed[k]=+this.median(rs.map(r=>r.axes[k]||0)).toFixed(1); });
+      const types=rs.map(r=>r.mainType);
+      const m=this.mode(types);
+      const exp=DIAG_EXPECT[P];
+      // 中央値スコアでの軸一致（ペルソナ代表）— 軸の説明用
+      const medDiag={ axes:axesMed, main:{ type:m.value, axis:null } };
+      const ranked=Diagnose.rankAxes(axesMed);
+      const allSmall=DIAG_AXES.every(k=>Math.abs(axesMed[k])<DIAG_PATTERN.balancedMaxAbs);
+      if(allSmall){ medDiag.main={ type:DIAG_TYPES.BALANCED, axis:null }; }
+      else {
+        const a0=ranked[0];
+        medDiag.main={ type:Diagnose.typeName(a0, axesMed[a0]), axis:a0, score:axesMed[a0] };
+      }
+      /* STEP7: 一致判定は「最頻タイプ」で行う。
+         中央値の軸スコアから代表を再構成する方式だと、パターン型（温存/迷走/息切れ）は
+         原理的に判定できない。週ごとの推移から決まるもので、軸の平均には現れないため。
+         実際 cashkeep は個別ラン99%が温存型なのに、中央値代表ではバランス型と出ていた。
+         最頻タイプは実際にプレイヤーへ返す値そのものなので、こちらで測るのが正しい。 */
+      const typeOk = !!(exp && m.value===exp.type);
+      byP[P]={
+        n:rs.length, axesMed,
+        modeType:m.value, modeRate:+(m.rate*100).toFixed(1),
+        typeOk,
+        axisOk: exp && exp.pattern ? typeOk : this.axisMatch(medDiag, exp||{}),
+        main: medDiag.main,
+        exp
+      };
+    });
+
+    // 合格基準
+    const typeHits=personas.filter(P=>byP[P].typeOk).length;
+    const axisHits=personas.filter(P=>byP[P].axisOk).length;
+    const stabAvg=personas.reduce((a,P)=>a+byP[P].modeRate,0)/Math.max(1,personas.length);
+    const typeDist={};
+    personas.forEach(P=>{ const t=byP[P].main.type; typeDist[t]=(typeDist[t]||0)+1; });
+    const maxTypeCount=Math.max(0, ...Object.keys(typeDist).map(k=>typeDist[k]));
+    const crit=[
+      { id:1, label:"主タイプが期待どおり", thresh:"12中10以上",
+        value:`${typeHits}/${personas.length}`, ok: typeHits>=10 },
+      { id:2, label:"期待した軸が最大絶対値", thresh:"全ペルソナで一致",
+        value:`${axisHits}/${personas.length}`, ok: axisHits>=personas.length },
+      { id:3, label:"同一ペルソナ×別シードで主タイプが安定", thresh:"80%以上",
+        value:`${stabAvg.toFixed(1)}%`, ok: stabAvg>=80 },
+      { id:4, label:"1タイプに偏らない", thresh:"1タイプに4件以上集まらない",
+        value:`最多 ${maxTypeCount}件`, ok: maxTypeCount<4 },
+    ];
+
+    // 全体タイプ分布（全ラン）
+    const allDist={};
+    rows.forEach(r=>{ allDist[r.mainType]=(allDist[r.mainType]||0)+1; });
+
+    // Markdown
+    const L=[], now=new Date();
+    const stamp=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
+    L.push("# DIAGNOSIS VALIDATION REPORT");
+    L.push("");
+    L.push(`- 生成: ${stamp}（\`JB.diagValidate({save:true})\` で自動生成）`);
+    L.push(`- 規模: ${personas.length}ペルソナ × ${bizList.length}事業 × ${seedsN}シード × ${difficulty} = **${rows.length}ラン**`);
+    L.push(`- 週数: **${weeks}**（${weeks<=CONFIG.lite.totalWeeks?"Lite解放スケジュール":"フル解放"}）`);
+    L.push(`- DIAG_NORM: PRICE μ=${DIAG_NORM.PRICE.mu} p2=${DIAG_NORM.PRICE.min} p98=${DIAG_NORM.PRICE.max}, OFFENSE μ=${DIAG_NORM.OFFENSE.mu} p2=${DIAG_NORM.OFFENSE.min} p98=${DIAG_NORM.OFFENSE.max}, CRAFT μ=${DIAG_NORM.CRAFT.mu} p2=${DIAG_NORM.CRAFT.min} p98=${DIAG_NORM.CRAFT.max}, SYSTEM μ=${DIAG_NORM.SYSTEM.mu} p2=${DIAG_NORM.SYSTEM.min} p98=${DIAG_NORM.SYSTEM.max}, DISCIPLINE μ(p50)=${DIAG_NORM.DISCIPLINE.mu} p2=${DIAG_NORM.DISCIPLINE.min} p98=${DIAG_NORM.DISCIPLINE.max}`);
+    L.push(`- DIAG_WEIGHTS: OFFENSE ad/sales/sns=${DIAG_WEIGHTS.OFFENSE.ad}/${DIAG_WEIGHTS.OFFENSE.sales}/${DIAG_WEIGHTS.OFFENSE.sns}, CRAFT improve/service/sat/produce=${DIAG_WEIGHTS.CRAFT.improve}/${DIAG_WEIGHTS.CRAFT.service}/${DIAG_WEIGHTS.CRAFT.sat}/${DIAG_WEIGHTS.CRAFT.produce}, SYSTEM staff/auto/manual/early/ownWork=${DIAG_WEIGHTS.SYSTEM.staff}/${DIAG_WEIGHTS.SYSTEM.auto}/${DIAG_WEIGHTS.SYSTEM.manual}/${DIAG_WEIGHTS.SYSTEM.early}/${DIAG_WEIGHTS.SYSTEM.ownWork}`);
+    L.push(`- 6.5: DISCIPLINE=axisScore(hitRate) / SYSTEM−ownWork / CRAFT−produce。scale廃止。タイブレーク=${DIAG_AXIS_TIE.join(">")}`);
+    L.push(`- 合格基準を満たしていなくてもよい。このレポートの目的は「測ること」`);
+    L.push("");
+
+    // 0. 軸 raw の p2 / p98（DIAG_NORM.min / max の根拠）
+    L.push("## 0. 軸 raw のパーセンタイル（DIAG_NORM 根拠）");
+    L.push("");
+    L.push("| 軸 | μ | p2 (参照) | p98 (正側max) | 負側下限 |");
+    L.push("|---|---:|---:|---:|---|");
+    ["PRICE","OFFENSE","CRAFT","SYSTEM","DISCIPLINE"].forEach(k=>{
+      const n=DIAG_NORM[k];
+      L.push(`| ${k} | ${n.mu} | ${n.min} | ${n.max} | ${k==="SYSTEM"||k==="PRICE"?"p2":"0（固定）"} |`);
+    });
+    L.push("");
+    L.push("> DISCIPLINE の μ は hit率の **p50**（他軸は平均）。決め打ち 0.5 は使わない。");
+    L.push("");
+
+    // 0b. STEP6.5 予測表との突き合わせ
+    const pred=[
+      { fix:"6.5-1", targets:["balanced"], note:"DISCIPLINE μ中心化" },
+      { fix:"6.5-2", targets:["adheavy"], note:"SYSTEM に ownWork" },
+      { fix:"6.5-2維持", targets:["lean"], note:"lean はプレイヤー型を維持" },
+      { fix:"副次", targets:["automation","earlyhire","growth"], note:"戦略型から本来の軸へ戻る見込み" },
+    ];
+    const stratN=rows.filter(r=>r.mainType==="戦略型").length;
+    const stratPct=rows.length? stratN/rows.length*100 : 0;
+    const discMedAll=+this.median(rows.map(r=>r.axes.DISCIPLINE||0)).toFixed(1);
+    const rotN=rows.filter(r=>r.mainType==="回転型").length;
+    L.push("## 0b. STEP 6.5 予測表との突き合わせ（必須）");
+    L.push("");
+    L.push("| 修正 | 直るはずのペルソナ | 実測(中央値代表) | 期待 | 直ったか | 最頻タイプ |");
+    L.push("|---|---|---|---|---|---|");
+    const missPred=[];
+    pred.forEach(p=>{
+      p.targets.forEach(P=>{
+        const bp=byP[P], e=DIAG_EXPECT[P];
+        const ok=!!(bp && bp.typeOk);
+        if(!ok) missPred.push({ fix:p.fix, P, got:bp?bp.main.type:"—", want:e?e.type:"—", mode:bp?bp.modeType:"—" });
+        L.push(`| ${p.fix} | ${P} | ${bp?bp.main.type:"—"} | ${e?e.type:"—"} | ${ok?"○ 直った":"× 外れ"} | ${bp?bp.modeType:"—"} |`);
+      });
+    });
+    L.push(`| 6.5-3 | （回転型の出現率） | ${rotN}件 / ${(rotN/Math.max(1,rows.length)*100).toFixed(1)}% | 上昇 | ${rotN>7?"○ 増えた":"△ 要観察"} | — |`);
+    L.push("");
+    L.push("### DoD チェック（6.5）");
+    L.push("");
+    L.push(`- DISCIPLINE 全体中央値: **${discMedAll}**（目標 ±20以内）→ ${Math.abs(discMedAll)<=20?"○":"×"}`);
+    L.push(`- 戦略型の全ラン比率: **${stratPct.toFixed(1)}%**（${stratN}/${rows.length}、目標 15%未満）→ ${stratPct<15?"○":"×"}`);
+    L.push("");
+    if(missPred.length){
+      L.push("### 予測が外れた項目＝本当の原因の在り処");
+      L.push("");
+      missPred.forEach(m=>{
+        L.push(`- **${m.fix} / ${m.P}**: 期待 ${m.want} → 中央値代表 ${m.got}（最頻 ${m.mode}）。この修正だけでは足りない。`);
+      });
+      L.push("");
+    } else {
+      L.push("予測どおり全部直った。");
+      L.push("");
+    }
+
+    // 0c. OFFENSE 事業間ばらつき（6-3 前後・履歴）
+    const offBefore={
+      juice:{adOld:2.299, axis:-100}, coco:{adOld:1.974, axis:-100},
+      photo:{adOld:1.071, axis:-100}, guide:{adOld:0.410, axis:-100},
+      brand:{adOld:1.339, axis:-100}
+    };
+    const offAfter={};
+    bizList.forEach(B=>{
+      const rs=rows.filter(r=>r.biz===B);
+      const adh=rows.filter(r=>r.biz===B && r.persona==="adheavy");
+      offAfter[B]={
+        axisMed:+this.median(rs.map(r=>r.axes.OFFENSE||0)).toFixed(1),
+        adheavyAxis:+this.median(adh.map(r=>r.axes.OFFENSE||0)).toFixed(1),
+        adheavyRaw:+this.median(adh.map(r=>(r.raw&&r.raw.OFFENSE)||0)).toFixed(4)
+      };
+    });
+    const beforeAds=bizList.map(B=>(offBefore[B]&&offBefore[B].adOld)||0);
+    const afterRaws=bizList.map(B=>offAfter[B].adheavyRaw);
+    const spreadBefore=Math.max(...beforeAds)-Math.min(...beforeAds);
+    const spreadAfter=Math.max(...afterRaws)-Math.min(...afterRaws);
+    L.push("## 0c. OFFENSE 事業間ばらつき（6-3 継続確認）");
+    L.push("");
+    L.push("| 事業 | 価格 | 修正前 adNorm(adheavy) | 今回 rawOFFENSE(adheavy) | 今回 OFFENSE軸(adheavy) |");
+    L.push("|---|---:|---:|---:|---:|");
+    bizList.forEach(B=>{
+      const pr=BUSINESSES[B]?BUSINESSES[B].price:"—";
+      const bf=offBefore[B]||{adOld:"—"};
+      const af=offAfter[B];
+      L.push(`| ${B} | ${pr} | ${bf.adOld} | ${af.adheavyRaw} | ${af.adheavyAxis} |`);
+    });
+    L.push("");
+    L.push(`- 修正前レンジ ${spreadBefore.toFixed(3)} → 今回 raw レンジ ${spreadAfter.toFixed(4)}（${spreadAfter<spreadBefore?"縮み維持":"拡大"}）`);
+    L.push("");
+
+    // 0d. DISCIPLINE hit率 → axisScore（6.5-1）
+    const hrSorted=hitRates.slice().sort((a,b)=>a-b);
+    const hrPct=(p)=>{ if(!hrSorted.length) return 0; const i=(hrSorted.length-1)*p/100; const lo=Math.floor(i),hi=Math.ceil(i); return lo===hi?hrSorted[lo]:hrSorted[lo]+(hrSorted[hi]-hrSorted[lo])*(i-lo); };
+    const hrMean=hrSorted.length? hrSorted.reduce((a,b)=>a+b,0)/hrSorted.length : 0;
+    L.push("## 0d. DISCIPLINE hit率 → axisScore（6.5-1）");
+    L.push("");
+    L.push("`DISCIPLINE.scale` は廃止。hit率を他軸と同じ `axisScore` に通す。");
+    L.push(`DIAG_NORM.DISCIPLINE: μ(p50)=${DIAG_NORM.DISCIPLINE.mu} / p2=${DIAG_NORM.DISCIPLINE.min} / p98=${DIAG_NORM.DISCIPLINE.max}`);
+    L.push("");
+    L.push("| 指標 | hit率 | axisScore |");
+    L.push("|---|---:|---:|");
+    if(hrSorted.length){
+      [["min",hrSorted[0]],["p2",hrPct(2)],["p50",hrPct(50)],["mean",hrMean],["p98",hrPct(98)],["max",hrSorted[hrSorted.length-1]]]
+        .forEach(([lab,v])=>{
+          L.push(`| ${lab} | ${(+v).toFixed(3)} | ${Diagnose.axisScore(v,"DISCIPLINE").toFixed(1)} |`);
+        });
+    }
+    L.push("");
+    L.push(`- 標本数: ${hrSorted.length}`);
+    L.push(`- 全ラン DISCIPLINE 中央値: **${discMedAll}**`);
+    L.push("");
+
+    // 1. 5軸中央値
+    L.push("## 1. ペルソナ別 5軸スコア中央値");
+    L.push("");
+    L.push("| ペルソナ | PRICE | OFFENSE | CRAFT | SYSTEM | DISCIPLINE | 主タイプ(中央値) | 期待 | 一致 |");
+    L.push("|---|---:|---:|---:|---:|---:|---|---|---|");
+    personas.forEach(P=>{
+      const p=byP[P], e=DIAG_EXPECT[P];
+      const mark=p.typeOk?"○":"×";
+      L.push(`| ${PERSONAS[P]?PERSONAS[P].emoji:""} ${P} | ${p.axesMed.PRICE} | ${p.axesMed.OFFENSE} | ${p.axesMed.CRAFT} | ${p.axesMed.SYSTEM} | ${p.axesMed.DISCIPLINE} | ${p.main.type} | ${e?e.type:"—"} | ${mark} |`);
+    });
+    L.push("");
+
+    // 2. 主タイプ一致率
+    L.push("## 2. 主タイプ一致率（期待表との照合）");
+    L.push("");
+    L.push(`- **${typeHits} / ${personas.length}** ペルソナが期待どおり（閾値: 10以上）`);
+    L.push("");
+    L.push("| ペルソナ | 期待 | 実測(中央値代表) | 最頻タイプ | 最頻率 |");
+    L.push("|---|---|---|---|---:|");
+    personas.forEach(P=>{
+      const p=byP[P], e=DIAG_EXPECT[P];
+      L.push(`| ${P} | ${e.type} | ${p.main.type} | ${p.modeType} | ${p.modeRate}% |`);
+    });
+    L.push("");
+
+    // 3. 安定率
+    L.push("## 3. 安定率（同一ペルソナ×別シード）");
+    L.push("");
+    L.push(`- ペルソナ平均の最頻タイプ占有率: **${stabAvg.toFixed(1)}%**（閾値: 80%以上）`);
+    L.push("");
+    L.push("| ペルソナ | 安定率 | 最頻タイプ |");
+    L.push("|---|---:|---|");
+    personas.forEach(P=>{
+      const p=byP[P];
+      L.push(`| ${P} | ${p.modeRate}% | ${p.modeType} |`);
+    });
+    L.push("");
+
+    // 4. タイプ分布
+    L.push("## 4. タイプ分布");
+    L.push("");
+    L.push("### ペルソナ代表（中央値スコア→主タイプ）の分布");
+    L.push("");
+    L.push("| タイプ | 件数 |");
+    L.push("|---|---:|");
+    Object.keys(typeDist).sort((a,b)=>typeDist[b]-typeDist[a])
+      .forEach(t=> L.push(`| ${t} | ${typeDist[t]} |`));
+    L.push("");
+    L.push("### 全ランの主タイプ分布");
+    L.push("");
+    L.push("| タイプ | 件数 | 割合 |");
+    L.push("|---|---:|---:|");
+    Object.keys(allDist).sort((a,b)=>allDist[b]-allDist[a])
+      .forEach(t=> L.push(`| ${t} | ${allDist[t]} | ${(allDist[t]/rows.length*100).toFixed(1)}% |`));
+    L.push("");
+
+    // 5. 合格判定
+    L.push("## 5. 合格基準の判定");
+    L.push("");
+    L.push("| # | 基準 | 閾値 | 実測 | 判定 |");
+    L.push("|---|---|---|---|---|");
+    crit.forEach(c=> L.push(`| ${c.id} | ${c.label} | ${c.thresh} | ${c.value} | ${c.ok?"○":"×"} |`));
+    L.push("");
+    const passN=crit.filter(c=>c.ok).length;
+    L.push(`**総合: ${passN}/${crit.length} 基準クリア**${passN===crit.length?"（合格）":"（未達 — 軸定義の見直しが必要。期待表の変更は禁止）"}`);
+    L.push("");
+    L.push("---");
+    L.push("");
+    L.push("> このレポートは測定手段。期待表を変えて合格させるのは禁止（CURSOR_DIAGNOSIS_TASK.md §3）。");
+    L.push("");
+
+    return {
+      md:L.join("\n"), rows:rows.length, byP, crit, typeHits, axisHits, stabAvg, typeDist,
+      config:{ personas, biz:bizList, seeds:seedsN, weeks, difficulty }
+    };
+  },
+};
+
 /* ========================= 起動 ========================= */
 // デバッグ用に一部を公開（開発時のバランス確認に使う）
 window.JB = { Engine, Economy, CONFIG, BUSINESSES, EVENTS,
@@ -5846,6 +7147,10 @@ window.JB = { Engine, Economy, CONFIG, BUSINESSES, EVENTS,
   }, Metrics, BalanceReport,
   runOne:(b,p,d,sd,o)=>Sim.runOne(b,p,d,sd,o),
   monteCarlo:(o)=>Sim.monteCarlo(o),
+  /* ---- 診断（5軸）---- */
+  Diagnose, DIAG_NORM, DIAG_TYPES, DIAG_WEIGHTS, DIAG_PATTERN, DIAG_COPY, DIAG_EXPECT, DiagValidate,
+  /* 診断カードのHTML。Lite完走画面で使うほか、将来の組織レポートでも同じ部品を使う */
+  diagnosisCard:(runId)=>diagnosisCard(runId),
   /* §39 docs/DIFFICULTY_BALANCE_REPORT.md を生成する。
      {save:true} でサーバーに書き出し、省略時は文字列を返すだけ。 */
   balanceReport(opt){
@@ -5861,6 +7166,22 @@ window.JB = { Engine, Economy, CONFIG, BUSINESSES, EVENTS,
       body:JSON.stringify({ name:opt.name||"DIFFICULTY_BALANCE_REPORT.md", content:rep.md }) })
       .then(r=>r.json())
       .then(j=>{ console.log(j.ok?`✅ 書き出し: ${j.path} (${j.bytes} bytes)`:`❌ ${j.error}`); return j; });
+  },
+  /* STEP3: 診断の当たり具合を測る。docs/DIAGNOSIS_VALIDATION.md を生成。
+     合格していなくてよい。測れることがゴール。 */
+  diagValidate(opt){
+    opt=opt||{};
+    const t0=Date.now();
+    const rep=DiagValidate.build(opt);
+    const ms=Date.now()-t0;
+    console.log(`%cDIAG VALIDATE: ${rep.rows}ラン / ${ms}ms`, "font-weight:bold;font-size:13px");
+    console.table(rep.crit.map(c=>({基準:c.label, 実測:c.value, 判定:c.ok?"○":"×"})));
+    if(opt.save===false || opt.save===undefined) return rep.md;
+    return fetch("/api/report", { method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ name:opt.name||"DIAGNOSIS_VALIDATION.md", content:rep.md }) })
+      .then(r=>r.json())
+      .then(j=>{ console.log(j.ok?`✅ 書き出し: ${j.path} (${j.bytes} bytes)`:`❌ ${j.error}`); return Object.assign({md:rep.md, crit:rep.crit}, j); });
   },
   /* ===== §107 AIプレイヤー: 固定戦略が最適解にならないか検証する ===== */
   PLAYERS:{
